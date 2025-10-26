@@ -221,9 +221,9 @@ def recv():
 
             if buffer.startswith(ntw.start) and buffer.endswith(ntw.end):
                 break
+            log("INCOMING: " + buffer)
 
         packet_type, args = ntw.decoding.decode_packet(buffer)
-        log("INCOMING: " + buffer)
         
         if packet_type == ntw.types["heartbeat_response"]:
             old_player_count = player_count

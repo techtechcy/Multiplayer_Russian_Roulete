@@ -26,7 +26,7 @@ def cprint(text: str):
     
     
     
-class client:
+class client:  # type: ignore
     def __init__(self, csocket: socket.socket, client_ip: str, client_port: str, username: str): 
         self.client_ip = client_ip
         self.client_port = client_port
@@ -36,7 +36,7 @@ class client:
     def send_packet(self, data: str | bytes):
         if type(data) == str:
             data = data.encode()
-        self.csocket.send(data)
+        self.csocket.send(data)  # type: ignore
     
 
 
@@ -162,7 +162,7 @@ class _server:
             except Exception as e:
                 cprint(f"Error handling client {client_address[0]}:{client_address[1]}:\n{e}")
                 cprint(f"Player List: {player_list}")
-                player_list.remove(client.get_user_from_ip(client_address[0]))
+                player_list.remove(client.get_user_from_ip(client_address[0]))  # type: ignore
                 return
             
 
@@ -173,8 +173,10 @@ class client:
         self.csocket = csocket
         self.username = username
         
-    def send_packet(self, data: str):
-        self.csocket.send(data.encode())
+    def send_packet(self, data: str | bytes):
+        if type(data) == str:
+            data.encode()
+        self.csocket.send(data)  # type: ignore
         
     @staticmethod
     def get_user_from_ip(client_ip: str):

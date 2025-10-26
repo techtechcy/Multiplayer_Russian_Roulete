@@ -164,26 +164,26 @@ class ntw:
     
     class decoding:
         @staticmethod
-        def decode_packet(data: bytes | str) -> tuple[str, tuple[typing.Any]]:
+        def decode_packet(data: bytes | str) -> tuple[str, tuple[typing.Any]]:  # type: ignore
             if type(data) == str: data = data.encode()
             
-            parts = data.decode().split(ntw.sep)
+            parts = data.decode().split(ntw.sep)  # type: ignore
             
-            ## start, sep,part,sep,end
+            ## start,sep,part,sep,end
             
             ############# Malformed Packet Checks #############
             if len(parts) < 3 or parts[0] != ntw.start:
-                return (ntw.types["invalid_packet"], (None))
+                return (ntw.types["invalid_packet"], (None))  # type: ignore
             
             if parts[len(parts) - 1] != ntw.end:
-                return (ntw.types["invalid_packet"], (None))
+                return (ntw.types["invalid_packet"], (None))  # type: ignore
             
             
             ###################################################
             
             
             if len(parts) < 2:
-                return (ntw.types["invalid_packet"], (None))
+                return (ntw.types["invalid_packet"], (None)) # type: ignore
             
             packet_type_raw = parts[1]
             if packet_type_raw.endswith(ntw.end):
@@ -192,43 +192,46 @@ class ntw:
                 packet_type = packet_type_raw
             
             if packet_type == ntw.types["heartbeat_response"]:
-                return (packet_type, (ntw.decoding._decode_heartbeat_response_packet(data)))
+                return (packet_type, (ntw.decoding._decode_heartbeat_response_packet(data))) # type: ignore
             
             if packet_type == ntw.types["heartbeat"]:
-                return (packet_type, (ntw.decoding._decode_heartbeat_packet(data)))
+                return (packet_type, (ntw.decoding._decode_heartbeat_packet(data))) # type: ignore
     
             elif packet_type == ntw.types["connection"]:
-                return (packet_type, (ntw.decoding._decode_connection_packet(data)))
+                return (packet_type, (ntw.decoding._decode_connection_packet(data)))# type: ignore
             
             elif packet_type == ntw.types["readiness"]:
-                return (packet_type, (ntw.decoding._decode_readiness_packet(data)))
+                return (packet_type, (ntw.decoding._decode_readiness_packet(data)))# type: ignore
             
             elif packet_type == ntw.types["invalid_packet"]:
-                return (packet_type, (ntw.decoding._decode_invalid_packet(data)))
+                return (packet_type, (ntw.decoding._decode_invalid_packet(data)))# type: ignore
             
             elif packet_type == ntw.types["request_players"]:
-                return (packet_type, (ntw.decoding._decode_request_players_packet(data)))
+                return (packet_type, (ntw.decoding._decode_request_players_packet(data)))# type: ignore
             
             elif packet_type == ntw.types["game_started"]:
-                return (packet_type, (ntw.decoding._decode_game_started_packet(data)))
+                return (packet_type, (ntw.decoding._decode_game_started_packet(data)))# type: ignore
             
             elif packet_type == ntw.types["pressed_trigger"]:
-                return (packet_type, (ntw.decoding._decode_pressed_trigger_packet(data)))
+                return (packet_type, (ntw.decoding._decode_pressed_trigger_packet(data)))# type: ignore
             
             elif packet_type == ntw.types["player_eliminated"]:
-                return (packet_type, (ntw.decoding._decode_player_eliminated_packet(data)))
+                return (packet_type, (ntw.decoding._decode_player_eliminated_packet(data)))# type: ignore
             
             elif packet_type == ntw.types["players"]:
-                return (packet_type, (ntw.decoding._decode_players_packet(data)))
+                return (packet_type, (ntw.decoding._decode_players_packet(data)))# type: ignore
             
             elif packet_type == ntw.types["user_disconnection"]:
-                return (packet_type, 1)
+                return (packet_type, 1)  # type: ignore
             
             elif packet_type == ntw.types["message_to_print"]:
-                return (packet_type, (ntw.decoding._decode_message_to_print_packet(data)))
+                return (packet_type, (ntw.decoding._decode_message_to_print_packet(data)))# type: ignore
             
             elif packet_type == ntw.types["player_selected"]:
-                return (packet_type, (ntw.decoding._decode_player_selected_packet(data)))
+                return (packet_type, (ntw.decoding._decode_player_selected_packet(data)))# type: ignore
+            
+            elif packet_type == ntw.types["game_about_to_start"]:
+                return (packet_type, ntw.decoding._decode_game_about_to_start_packet(data)) # type: ignore
             
         
         @staticmethod
@@ -244,19 +247,20 @@ class ntw:
         
             
         @staticmethod
-        def _decode_message_to_print_packet(data: bytes) -> bool:
+        def _decode_message_to_print_packet(data: bytes) -> bool | str: # type: ignore
             parts = ntw.decoding.seperate_parts(data)
-            if len(parts) == 3 or parts[1] != ntw.types["heartbeat"]:
+            if len(parts) != 4 or parts[1] != ntw.types["message_to_print"]:
                 return False
-            
+            return parts[2]
             
             
         
         @staticmethod
-        def _decode_player_selected_packet(data: bytes) -> bool:
+        def _decode_player_selected_packet(data: bytes) -> str | bool:# type: ignore
             parts = ntw.decoding.seperate_parts(data)
-            if len(parts) == 3 or parts[1] != ntw.types["heartbeat"]:
+            if len(parts) == 4 or parts[1] != ntw.types["player_selected"]:
                 return False
+            return parts[2]
         
         @staticmethod
         def _decode_heartbeat_packet(data: bytes) -> bool:
@@ -299,7 +303,7 @@ class ntw:
             elif parts[2] == "0":
                 return False
             else:
-                return None
+                return None # type: ignore
             
         @staticmethod
         def _decode_invalid_packet(data: bytes) -> bool | int:
@@ -386,4 +390,12 @@ class ntw:
                 return 0
             
             return parts[2]
+
+        @staticmethod
+        def _decode_game_about_to_start_packet(data: bytes) -> bool:
+            parts = ntw.decoding.seperate_parts(data)
+            if len(parts) != 3 or parts[1] != ntw.types["game_about_to_start"]:
+                return False
+            return True
+    
         
