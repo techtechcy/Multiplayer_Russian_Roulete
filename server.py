@@ -11,7 +11,7 @@ os.system("cls")
 q = queue.Queue()
 
 class defaults:
-    port = 8032
+    port = ntw.default_port
     numbers_of_chambers = 6
     max_clients = numbers_of_chambers - 1
     

@@ -96,7 +96,7 @@ server_ip_input = input("Enter server IP address: ") or "localhost"
 server_port_input = None
 
 while server_port_input == None:
-    inp = input("Enter server port (press Enter for default port: 8032): ") or "8032"
+    inp = input(f"Enter server port (press Enter for default port: {ntw.default_port}): ") or str(ntw.default_port)
 
     try:
         inted = int(inp)

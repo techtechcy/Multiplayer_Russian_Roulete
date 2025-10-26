@@ -4,6 +4,8 @@ import msvcrt
 import time
 
 class ntw:
+    default_port = 2046
+    
     start = "(*"
     sep = ","
     end = "*)"
