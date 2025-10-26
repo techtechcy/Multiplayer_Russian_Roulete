@@ -12,6 +12,14 @@ from shared import ntw
 q = queue.Queue()
 os.system("cls")
 
+class defaults:
+    GAME_NAME_NS = "MP_Russian_Roulette"
+    GAME_NAME_WS = "Multiplayer Russian Roulette"
+    CLS = "cls"
+
+def format_list(list: list | tuple):
+    return str(list).replace("[", "").replace("]", "")
+
 def printf(text: str, delay: float = 0.06, newline: bool = True, finaldelay: float | None = None):
     text_list = list(text)
 
@@ -213,48 +221,52 @@ def validate_username(username: str) -> bool:
 valid_username = False
 
 while not valid_username:
-    printf("What will you be your username? (1 to 20 alphanumeric characters): ", newline=False)
-    username = input()
+    printf("What will you be your username? (1 to 20 alphanumeric characters): ", newline=False, delay=0.04)
+    username = str(input())
 
     valid_username = validate_username(username)
     if not valid_username:
         printf("Username is invalid!")
     
-    connected = connection_server.connect_to_server(server_ip_input, server_port_input)
+connected = connection_server.connect_to_server(server_ip_input, server_port_input)
 
-    if not connected:
-        csocket.send(ntw.encoding.encode_user_disconnection()) # user_disconnection
-        csocket.close()
-        game_is_running = False
-        sys.exit(0)
+if not connected:
+    csocket.send(ntw.encoding.encode_user_disconnection()) # user_disconnection
+    csocket.close()
+    game_is_running = False
+    sys.exit(0)
 
-    threading.Thread(target=sendall, daemon=True).start()
-    threading.Thread(target=recv, daemon=True).start()
+threading.Thread(target=sendall, daemon=True).start()
+threading.Thread(target=recv, daemon=True).start()
 
-    if connected:
-        q.put(ntw.encoding.encode_connection_packet(username))
-        threading.Thread(target=send_hb, daemon=True).start()
+time.sleep(2)
+if connected:
+    os.system("cls")
+    q.put(ntw.encoding.encode_connection_packet(username))
+    threading.Thread(target=send_hb, daemon=True).start()
 
-        while connected:
-            printf("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game", delay=0.04)
-            
-            while not started and connected:
-                if msvcrt.kbhit():
-                    key = msvcrt.getch()
-                    if key == b'1':
-                        ready = not ready
-                        q.put(ntw.encoding.encode_readiness_packet(ready))
-                    elif key == b'2':
-                        printf("".join(f"{index + 1}. {plrname}" for index, plrname in enumerate(players)))
-                    elif key == b'3':
-                        printf(f"{player_count} Players in this lobby")
-                    elif key == b'4':
-                        printf("Exiting...", finaldelay=1.5)
-                        csocket.send(ntw.encoding.encode_user_disconnection()) # user_disconnection
-                        csocket.close()
-                        game_is_running = False
-                        sys.exit(0)
+    while connected:
+        printf("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game", delay=0.03)
+        
+        while not started and connected:
+            if msvcrt.kbhit():
+                key = msvcrt.getch()
+                if key == b'1':
+                    ready = not ready
+                    q.put(ntw.encoding.encode_readiness_packet(ready))
+                elif key == b'2':
+                    printf("".join(f"{index + 1}. {plrname}" for index, plrname in enumerate(players)))
+                elif key == b'3':
+                    printf(f"{player_count} Players in this lobby: {players}")
+                elif key == b'4':
+                    printf("Exiting...", finaldelay=1.5)
+                    csocket.send(ntw.encoding.encode_user_disconnection()) # user_disconnection
+                    csocket.close()
+                    game_is_running = False
+                    sys.exit(0)
 
-                time.sleep(0.01)
-    else:
-        break
+            time.sleep(0.01)
+        
+        if started:
+            ############### start game logic ###############
+            pass
