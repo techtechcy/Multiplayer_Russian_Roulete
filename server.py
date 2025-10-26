@@ -160,10 +160,19 @@ class GUI(tk.Frame):
         def broadcast_game_started_packet():
             print("Broadcasting Game Started Packet...")
             server.broadcast_packet(ntw.encoding.encode_game_started_packet())
+            
+        def broadcast_clear_terminal_packet():
+            print("Broadcasting Game Started Packet...")
+            server.broadcast_packet(ntw.encoding.encode_clear_terminal_packet())
+            
+
         
         
         ################### Buttons ####################
         broadcast_game_started_btn = tk.Button(self.root, text="Broadcast Packet: Game Started", command=broadcast_game_started_packet)
+        broadcast_game_started_btn.pack(pady=10)
+        
+        broadcast_game_started_btn = tk.Button(self.root, text="Broadcast Packet: Clear Terminal", command=broadcast_clear_terminal_packet)
         broadcast_game_started_btn.pack(pady=10)
         ################################################
 
@@ -171,6 +180,8 @@ class GUI(tk.Frame):
 
 def main():
     root = tk.Tk()
+    root.geometry("500x500")
+    root.wm_attributes("-topmost", True)
     GUI(root, server)
 
     root.mainloop()
@@ -239,11 +250,12 @@ class client:
 
 
     
-###################### Game Loop #####################
+############################################################### Actual Game ###############################################################
 print("Server has Started!")
-input("Press Enter to start accepting connections...")
+sleep(0.5)
 accept_connections_thread.start()
 os.system(defaults.CLS)
+
 while True:
     if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
         os.system(defaults.CLS)
@@ -251,11 +263,25 @@ while True:
         
         server.broadcast_packet(ntw.encoding.encode_game_about_to_start_packet())
         sleep(defaults.game_starting_delay)
+        print("Game has started.")
         server.broadcast_packet(ntw.encoding.encode_game_started_packet())
+        sleep(1)
+        os.system(defaults.CLS)
+    sleep(0.5)
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
                     
-    sleep(3)
-######################################################
+print("Reached EOF")
+sleep(3)
+###########################################################################################################################################
     
     
     

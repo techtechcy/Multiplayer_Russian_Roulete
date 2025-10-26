@@ -98,7 +98,8 @@ class ntw:
         "player_eliminated": "ply_elim",
         "user_disconnection": "usr_dsc",
         "message_to_print": "msg_prt",
-        "player_selected": "ply_sel" # sends what player was selected
+        "player_selected": "ply_sel", # sends what player was selected
+        "clear_terminal": "clr_term"
     }
     
     max_packet_size = 1024
@@ -157,6 +158,10 @@ class ntw:
         @staticmethod
         def encode_game_about_to_start_packet() -> bytes:
             return (ntw.start + ntw.sep + ntw.types["game_about_to_start"] + ntw.sep + ntw.end).encode()
+        
+        @staticmethod
+        def encode_clear_terminal_packet() -> bytes:
+            return (ntw.start + ntw.sep + ntw.types["clear_terminal"] + ntw.sep + ntw.end).encode()
 
         
             
@@ -233,6 +238,9 @@ class ntw:
             elif packet_type == ntw.types["game_about_to_start"]:
                 return (packet_type, ntw.decoding._decode_game_about_to_start_packet(data)) # type: ignore
             
+            elif packet_type == ntw.types["clear_terminal"]:
+                return (packet_type, ntw.decoding._decode_clear_terminal_packet(data)) # type: ignore
+            
         
         @staticmethod
         def seperate_parts(packet: bytes): # type: ignore
@@ -244,12 +252,19 @@ class ntw:
         
         
         
-        
+        @staticmethod
+        def _decode_clear_terminal_packet(data: bytes):
+            parts = ntw.decoding.seperate_parts(data)
+            if len(parts) != 3 or parts[1] != ntw.types["clear_terminal"]:
+                print("Decoding Error: Malformed clear terminal packet")
+                return False
+            return True
             
         @staticmethod
         def _decode_message_to_print_packet(data: bytes) -> bool | str: # type: ignore
             parts = ntw.decoding.seperate_parts(data)
             if len(parts) != 4 or parts[1] != ntw.types["message_to_print"]:
+                print("Decoding Error: Malformed msg to print packet")
                 return False
             return parts[2]
             
@@ -259,6 +274,7 @@ class ntw:
         def _decode_player_selected_packet(data: bytes) -> str | bool:# type: ignore
             parts = ntw.decoding.seperate_parts(data)
             if len(parts) == 4 or parts[1] != ntw.types["player_selected"]:
+                print("Decoding Error: Malformed player selected packet")
                 return False
             return parts[2]
         
@@ -266,6 +282,7 @@ class ntw:
         def _decode_heartbeat_packet(data: bytes) -> bool:
             parts = ntw.decoding.seperate_parts(data)
             if len(parts) == 3 or parts[1] != ntw.types["heartbeat"]:
+                print("Decoding Error: Malformed heartbeat packet")
                 return False
             return True
         
@@ -273,6 +290,7 @@ class ntw:
         def _decode_heartbeat_response_packet(data: bytes):
             parts = ntw.decoding.seperate_parts(data)
             if len(parts) != 4 or parts[1] != ntw.types["heartbeat_response"]:
+                print("Decoding Error: Malformed hjeartbeat response packet")
                 return 0
             
             try:
@@ -286,6 +304,7 @@ class ntw:
         def _decode_connection_packet(data: bytes) -> str | int:
             parts = ntw.decoding.seperate_parts(data)
             if len(parts) != 4 or parts[1] != ntw.types["connection"]:
+                print("Decoding Error: Malformed connection packet")
                 return 0
             
             return parts[2]
@@ -340,6 +359,7 @@ class ntw:
         def _decode_players_packet(data: bytes) -> list[str] | int:
             parts = ntw.decoding.seperate_parts(data)
             if len(parts) < 3 or parts[1] != ntw.types["players"]:
+                print("Decoding Error: Malformed players packet")
                 return 0
         
             # encoded_player_list = ntw.arg_list_sep.join(user for user in usernames)
@@ -355,6 +375,7 @@ class ntw:
         def _decode_game_started_packet(data: bytes) -> bool | int:
             parts = ntw.decoding.seperate_parts(data)
             if len(parts) < 2:
+                print("Decoding Error: Malformed Game Started packet")
                 return 0
             candidate = parts[1]
             if candidate.endswith(ntw.end):
@@ -371,6 +392,7 @@ class ntw:
         def _decode_pressed_trigger_packet(data: bytes) -> bool | int:
             parts = ntw.decoding.seperate_parts(data)
             if len(parts) < 2:
+                print("Decoding Error: Malformed Pressed Trigger packet")
                 return 0
             candidate = parts[1]
             if candidate.endswith(ntw.end):
@@ -387,6 +409,7 @@ class ntw:
         def _decode_player_eliminated_packet(data: bytes) -> str | int:
             parts = ntw.decoding.seperate_parts(data)
             if len(parts) != 3 or parts[1] != ntw.types["player_eliminated"]:
+                print("Decoding Error: Malformed Player Eliminated packet")
                 return 0
             
             return parts[2]
@@ -395,6 +418,7 @@ class ntw:
         def _decode_game_about_to_start_packet(data: bytes) -> bool:
             parts = ntw.decoding.seperate_parts(data)
             if len(parts) != 3 or parts[1] != ntw.types["game_about_to_start"]:
+                print("Decoding Error: Malformed Game About To Start packet")
                 return False
             return True
     

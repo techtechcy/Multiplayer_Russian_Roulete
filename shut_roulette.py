@@ -20,6 +20,7 @@ logger = queue.Queue()
 
 def main():
     root = tk.Tk()
+    root.wm_attributes("-topmost", True)
     myGUI(root)
 
     t1 = threading.Thread(target=myGUI.worker, args=[logger])
@@ -180,7 +181,12 @@ def recv():
         buffer = ""
         while game_is_running:
             csocket.settimeout(None)
-            response = csocket.recv(ntw.max_packet_size)
+            
+            try:
+                response = csocket.recv(ntw.max_packet_size)
+            except:
+                printf("Connection with the server has been terminated")
+                sys.exit(0)
 
             if not response:
                 connected = False
@@ -216,7 +222,7 @@ def recv():
         elif packet_type == ntw.types["players"]:
             players = args
         
-        elif packet_type == ntw.types["msg_to_print"]:
+        elif packet_type == ntw.types["message_to_print"]:
             output = str(args)
             printf(output, delay=0.03)
         
@@ -242,7 +248,10 @@ def recv():
                 q.put(ntw.encoding.encode_pressed_trigger_packet()) # you are probably cooked lil bro 💀
             
             else: # ANOTHER PERSON HAS BEEN SELECTED
-                printf(f"The gun is being handed to {user_selected}...", delay=0.03)
+                printf(f"The room has gone silent while staring at {user_selected} as the gun was being handed to them...", delay=0.03)
+        
+        elif packet_type == ntw.types["clear_terminal"]:
+            os.system(defaults.CLS)
 
 def validate_username(username: str) -> bool:
     valid_user = "".join(char for char in username if char.isalnum())
@@ -271,8 +280,9 @@ threading.Thread(target=sendall, daemon=True).start()
 threading.Thread(target=recv, daemon=True).start()
 
 def show_pregame_menu():
-    os.system(defaults.CLS)
-    print("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game")
+    if not started and not about_to_start and connected:
+        os.system(defaults.CLS)
+        print("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game")
 
 time.sleep(2)
 if connected:
