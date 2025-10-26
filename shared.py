@@ -69,7 +69,7 @@ class myGUI(tk.Frame):
     def worker(logger: queue.Queue):
         # Skeleton worker function, runs in separate thread
         while True:
-            time = f"{datetime.datetime.now().hour}:{datetime.datetime.now().minute}"
+            time = f"{datetime.datetime.now().hour}:{datetime.datetime.now().minute}:{datetime.datetime.now().second}"
             raw_msg = logger.get()
             msg = f"{time}: {raw_msg}"
             
