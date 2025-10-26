@@ -106,9 +106,6 @@ while server_port_input == None:
     else:
         server_port_input = inted
 
-gun_texture = "▄︻テ══━一"
-gun_effect = "💥"
-
 connection_server = server()
 
 player_count = 0
@@ -211,14 +208,17 @@ def recv():
             printf("The game has started!", delay=0.04)
         
         elif packet_type == ntw.types["players"]:
-            print(players)
             players = args
 
 def validate_username(username: str) -> bool:
     valid_user = "".join(char for char in username if char.isalnum())
     return (valid_user == username and len(valid_user) == len(username) and len(valid_user) >= 1 and len(valid_user) <= 20)
 
+username = ""
 valid_username = False
+
+gun_texture = "▄︻テ══━一"
+gun_effect = "💥"
 
 while not valid_username:
     printf("What will you be your username? (1 to 20 alphanumeric characters): ", newline=False, delay=0.04)
@@ -239,33 +239,42 @@ if not connected:
 threading.Thread(target=sendall, daemon=True).start()
 threading.Thread(target=recv, daemon=True).start()
 
+def show_pregame_menu():
+    os.system(defaults.CLS)
+    printf("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game")
+
 time.sleep(2)
 if connected:
-    os.system("cls")
+    os.system(defaults.CLS)
     q.put(ntw.encoding.encode_connection_packet(username))
     threading.Thread(target=send_hb, daemon=True).start()
 
+    printf("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game", delay=0.03)
     while connected:
-        printf("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game", delay=0.03)
-        
         while not started and connected:
             if msvcrt.kbhit():
                 key = msvcrt.getch()
                 if key == b'1':
                     ready = not ready
                     q.put(ntw.encoding.encode_readiness_packet(ready))
+                    printf("You are " + ("ready" if ready else "no longer ready"), finaldelay=2)
+                    show_pregame_menu()
                 elif key == b'2':
-                    printf("".join(f"{index + 1}. {plrname}" for index, plrname in enumerate(players)))
+                    printf("".join(f"{index + 1}. {plrname}" for index, plrname in enumerate(players)), finaldelay=3)
+                    show_pregame_menu()
                 elif key == b'3':
-                    printf(f"{player_count} Players in this lobby: {players}")
+                    printf(f"{player_count} Players in this lobby", finaldelay=3)
+                    show_pregame_menu()
                 elif key == b'4':
                     printf("Exiting...", finaldelay=1.5)
                     csocket.send(ntw.encoding.encode_user_disconnection())
                     csocket.close()
                     game_is_running = False
                     sys.exit(0)
+        
 
             time.sleep(0.01)
+
         
         if started:
             ############### start game logic ###############

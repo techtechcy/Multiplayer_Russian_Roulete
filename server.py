@@ -25,10 +25,11 @@ def cprint(text: str):
     
     
 class client:
-    def __init__(self, csocket: socket.socket, client_ip: str, client_port: str): 
+    def __init__(self, csocket: socket.socket, client_ip: str, client_port: str, username: str): 
         self.client_ip = client_ip
         self.client_port = client_port
         self.csocket = csocket
+        self.username = username
     
     def send_packet(self, data: str | bytes):
         if type(data) == str:
@@ -76,7 +77,7 @@ class _server:
     def start_accepting_connections(self):
         while True:
             client_socket, client_address = self.server_socket.accept()
-            client_handler = threading.Thread(target=self.handle_client, args=(client_socket, client_address))
+            client_handler = threading.Thread(target=self.handle_client, args=(client_socket, client_address), daemon=True, name=f"Client-Handler_{client_address[0]}")
             client_handler.start()
     
     
@@ -90,6 +91,7 @@ class _server:
             try:
                 while True:
                     data = client_socket.recv(ntw.max_packet_size)
+                    cprint(f"Received Raw Packet: {data.decode()}")
                     
                     if not data:
                         return
@@ -97,7 +99,6 @@ class _server:
                     full_packet += data.decode()
                     
                     if full_packet.startswith(ntw.start) and full_packet.endswith(ntw.end):
-                        cprint(f"Received full packet from client: {full_packet}")
                         break
                 
                 # FULL PACKET
@@ -105,12 +106,12 @@ class _server:
                 packet_type, packet_args = ntw.decoding.decode_packet(full_packet)
                 
                 if packet_type == ntw.types["heartbeat"]:
-                    cprint("Received heartbeat from client")
+                    cprint(f"Received Heartbeat, responding with {ntw.encoding.encode_heartbeat_response_packet(len(user_list))}")
                     client_socket.send(ntw.encoding.encode_heartbeat_response_packet(len(user_list)))
                 
                 elif packet_type == ntw.types["connection"]:
-                    username = packet_args
-                    user_list.append(client(client_socket, client_address[0], client_address[1]))
+                    username = str(packet_args)
+                    user_list.append(client(csocket=client_socket, client_ip=client_address[0], client_port=client_address[1], username=username)) # type: ignore
                     cprint(f"User '{username}' connected from {client_address[0]}:{client_address[1]}")
                     cprint(f"Player List: {user_list}")
                 
@@ -126,9 +127,14 @@ class _server:
                 elif packet_type == ntw.types["invalid_packet"]:
                     cprint(f"Received invalid packet from client: {packet_args}, {full_packet}")
                     
-                elif packet_type == ntw.types["rq_ply"]:
-                    cprint("Sending Players...")
-                    client_socket.send(ntw.encoding.encode_players_packet(user_list))
+                elif packet_type == ntw.types["request_players"]:
+                    username_list = []
+                    for user in user_list:
+                        username_list.append(user.username)
+                    cprint(f"Sending Players: {username_list}")
+                    
+                    
+                    client_socket.send(ntw.encoding.encode_players_packet(username_list))
                     
                 elif packet_type == ntw.types["user_disconnection"]:
                     cprint(f"{client.get_user_from_ip(client_address[0])}: Disconnected Gracefully")
@@ -154,10 +160,11 @@ class _server:
             
 
 class client:
-    def __init__(self, csocket: socket.socket, client_ip: str, client_port: str): 
+    def __init__(self, csocket: socket.socket, client_ip: str, client_port: str, username: str): 
         self.client_ip = client_ip
         self.client_port = client_port
         self.csocket = csocket
+        self.username = username
         
     def _send_packet(self, data: str):
         self.csocket.send(data.encode())
@@ -173,7 +180,7 @@ class client:
 
 gun = Gun()
 server = _server()
-accept_connections_thread = threading.Thread(target=server.start_accepting_connections)
+accept_connections_thread = threading.Thread(target=server.start_accepting_connections, daemon=True)
 
 
     

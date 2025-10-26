@@ -22,6 +22,7 @@ class ntw:
     }
     
     max_packet_size = 1024
+    arg_list_sep = "|l|"
     
     class encoding:
         @staticmethod
@@ -63,8 +64,10 @@ class ntw:
         
         @staticmethod
         def encode_players_packet(usernames: list[str]) -> bytes:
-            players_str = ntw.sep.join(usernames)
-            return (ntw.start + ntw.sep + ntw.types["players"] + ntw.sep + players_str + ntw.sep + ntw.end).encode()
+            encoded_player_list = ntw.arg_list_sep.join(user for user in usernames)
+            packet_data = (ntw.start + ntw.sep + ntw.types["players"] + ntw.sep + encoded_player_list + ntw.sep + ntw.end).encode()
+            print(f"Sending Player Packet: {packet_data}")
+            return packet_data
         
         @staticmethod
         def encode_user_disconnection() -> bytes:
@@ -86,17 +89,17 @@ class ntw:
             
             ############# Malformed Packet Checks #############
             if len(parts) < 3 or parts[0] != ntw.start:
-                return ntw.types["invalid_packet"], (None)
+                return (ntw.types["invalid_packet"], (None))
             
             if parts[len(parts) - 1] != ntw.end:
-                return ntw.types["invalid_packet"], (None)
+                return (ntw.types["invalid_packet"], (None))
             
             
             ###################################################
             
             
             if len(parts) < 2:
-                return (None, None)
+                return (ntw.types["invalid_packet"], (None))
             
             packet_type_raw = parts[1]
             if packet_type_raw.endswith(ntw.end):
@@ -150,9 +153,9 @@ class ntw:
             return True
         
         @staticmethod
-        def _decode_heartbeat_response_packet(data: bytes) -> int | int:
+        def _decode_heartbeat_response_packet(data: bytes):
             parts = data.decode().split(ntw.sep)
-            if len(parts) != 3 or parts[1] != ntw.types["heartbeat_response"]:
+            if len(parts) != 4 or parts[1] != ntw.types["heartbeat_response"]:
                 return 0
             
             try:
@@ -165,7 +168,7 @@ class ntw:
         @staticmethod
         def _decode_connection_packet(data: bytes) -> str | int:
             parts = data.decode().split(ntw.sep)
-            if len(parts) != 3 or parts[1] != ntw.types["connection"]:
+            if len(parts) != 4 or parts[1] != ntw.types["connection"]:
                 return 0
             
             return parts[2]
@@ -204,16 +207,15 @@ class ntw:
         @staticmethod
         def _decode_request_players_packet(data: bytes) -> bool | int:
             parts = data.decode().split(ntw.sep)
-            if len(parts) < 2:
+            if len(parts) != 3:
+                print("Unexpected Amount of Parts")
                 return 0
             candidate = parts[1]
-            if candidate.endswith(ntw.end):
-                candidate = candidate[:-len(ntw.end)]
-            elif len(parts) >= 3 and parts[2] == ntw.end:
-                pass
-            else:
-                pass
             if candidate != ntw.types["request_players"]:
+                print("Malformed request players packet 1")
+                return 0
+            if not parts[2].endswith(ntw.end):
+                print("Malformed request players packet 2")
                 return 0
             return True
         
@@ -222,6 +224,8 @@ class ntw:
             parts = data.decode().split(ntw.sep)
             if len(parts) < 3 or parts[1] != ntw.types["players"]:
                 return 0
+            
+            # raw_player_list = parts[]
             
             players = []
             for i in range(2, len(parts)):
