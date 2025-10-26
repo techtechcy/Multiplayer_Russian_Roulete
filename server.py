@@ -1,11 +1,11 @@
 import socket
 import random
-import typing
 from time import sleep
 import queue
 import threading
 from shared import ntw
 import os
+
 
 os.system("cls")
 q = queue.Queue()
@@ -14,6 +14,8 @@ class defaults:
     port = ntw.default_port
     numbers_of_chambers = 6
     max_clients = numbers_of_chambers - 1
+    CLS = "cls"
+    game_starting_delay = 5 # in seconds
     
     
     
@@ -45,7 +47,7 @@ class client:
 
    
 user_with_gun = None
-user_list: list[client] = []
+player_list: list[client] = []
 
 class Gun:
     def __init__(self):
@@ -79,7 +81,12 @@ class _server:
             client_socket, client_address = self.server_socket.accept()
             client_handler = threading.Thread(target=self.handle_client, args=(client_socket, client_address), daemon=True, name=f"Client-Handler_{client_address[0]}")
             client_handler.start()
-    
+            
+            
+    def broadcast_packet(self, packet: bytes, delay: float = 0.2):
+        for user in player_list:
+            user.send_packet(packet)   
+            sleep(delay)
     
         
     def handle_client(self, client_socket: socket.socket, client_address: tuple):
@@ -106,14 +113,14 @@ class _server:
                 packet_type, packet_args = ntw.decoding.decode_packet(full_packet)
                 
                 if packet_type == ntw.types["heartbeat"]:
-                    cprint(f"Received Heartbeat, responding with {ntw.encoding.encode_heartbeat_response_packet(len(user_list))}")
-                    client_socket.send(ntw.encoding.encode_heartbeat_response_packet(len(user_list)))
+                    cprint(f"Received Heartbeat, responding with {ntw.encoding.encode_heartbeat_response_packet(len(player_list))}")
+                    client_socket.send(ntw.encoding.encode_heartbeat_response_packet(len(player_list)))
                 
                 elif packet_type == ntw.types["connection"]:
                     username = str(packet_args)
-                    user_list.append(client(csocket=client_socket, client_ip=client_address[0], client_port=client_address[1], username=username)) # type: ignore
+                    player_list.append(client(csocket=client_socket, client_ip=client_address[0], client_port=client_address[1], username=username)) # type: ignore
                     cprint(f"User '{username}' connected from {client_address[0]}:{client_address[1]}")
-                    cprint(f"Player List: {user_list}")
+                    cprint(f"Player List: {player_list}")
                 
                 elif packet_type == ntw.types["readiness"]:
                     is_ready = packet_args
@@ -129,7 +136,7 @@ class _server:
                     
                 elif packet_type == ntw.types["request_players"]:
                     username_list = []
-                    for user in user_list:
+                    for user in player_list:
                         username_list.append(user.username)
                     cprint(f"Sending Players: {username_list}")
                     
@@ -154,8 +161,8 @@ class _server:
                 
             except Exception as e:
                 cprint(f"Error handling client {client_address[0]}:{client_address[1]}:\n{e}")
-                cprint(f"Player List: {user_list}")
-                user_list.remove(client.get_user_from_ip(client_address[0]))
+                cprint(f"Player List: {player_list}")
+                player_list.remove(client.get_user_from_ip(client_address[0]))
                 return
             
 
@@ -171,7 +178,7 @@ class client:
         
     @staticmethod
     def get_user_from_ip(client_ip: str):
-        for user in user_list:
+        for user in player_list:
             if user.client_ip == client_ip:
                 return user
         return False
@@ -188,35 +195,19 @@ accept_connections_thread = threading.Thread(target=server.start_accepting_conne
 print("Server has Started!")
 input("Press Enter to start accepting connections...")
 accept_connections_thread.start()
+os.system(defaults.CLS)
 while True:
-    if len(server.ready_users) == len(user_list) and len(user_list) >= 2:
-        print("All players are ready. Starting the game in 5 seconds...")
-        sleep(5)
+    if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
+        os.system(defaults.CLS)
+        print(f"All {len(player_list)} players are ready. Starting the game in 5 seconds...")
         
-        for user in user_list:
-            user.csocket.send(ntw.encoding.encode_game_started_packet())
-            
-        
-        while True:
-            for user in user_list:
-                user.send_packet(b"It's your turn! Pulling the trigger...\n")
-                sleep(2)
-                
-                if gun.pull_trigger():
-                    user.send_packet(b"Bang! You are eliminated.\n")
-                    user_list.remove(user)
-                    server.ready_users.remove(user)
+        server.broadcast_packet(ntw.encoding.encode_game_about_to_start_packet())
+        sleep(defaults.game_starting_delay)
+        server.broadcast_packet(ntw.encoding.encode_game_started_packet())
+
                     
-                    if len(user_list) == 1:
-                        user_list[0].send_packet(b"You are the last player standing! You win!\n")
-                        print("Game over. Restarting in 10 seconds...")
-                        sleep(10)
-                        gun = Gun()
-                        break
-                else:
-                    user.send_packet(b"Click! You survived this round.\n")
     sleep(3)
-###################### Game Loop #####################
+######################################################
     
     
     

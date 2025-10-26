@@ -3,13 +3,40 @@ import queue
 import time
 import os
 import sys
-import playsound
-import pyvolume
 import msvcrt
 import threading
 from shared import ntw
+import time
+import threading
+from shared import TextHandler,myGUI
+import tkinter as tk
+
+gun_texture = "▄︻テ══━一"
+gun_effect = "💥"
 
 q = queue.Queue()
+logger = queue.Queue()
+
+
+def main():
+    root = tk.Tk()
+    myGUI(root)
+
+    t1 = threading.Thread(target=myGUI.worker, args=[logger])
+    t1.start()
+
+    root.mainloop()
+    t1.join()
+
+logging_window = threading.Thread(daemon=True, target=main, name="Client Logging Window")
+logging_window.start()
+
+
+
+def log(msg):
+    logger.put_nowait(msg)
+    
+
 os.system("cls")
 
 class defaults:
@@ -112,6 +139,7 @@ player_count = 0
 players = []
 
 started = False
+about_to_start = False
 ready = False
 
 def send_hb():
@@ -125,6 +153,7 @@ def sendall():
     while connected:
         try:
             packet = q.get()  # blocking wait for next packet
+            log("OUTGOING: " + packet.decode())
             csocket.send(packet)
             
             # # Handle heartbeat acknowledgment
@@ -163,6 +192,8 @@ def sendall():
             connected = False
             break
 
+        time.sleep(0.05) # SMALL DELAY SO THE SERVER WONT OVERFLOW WITH PACKETS
+
     try:
         csocket.send(ntw.encoding.encode_user_disconnection())
         csocket.close()
@@ -171,7 +202,7 @@ def sendall():
     printf("Disconnected from server")
 
 def recv():
-    global connected, csocket, players
+    global connected, csocket, players, player_count, started, about_to_start
 
     while connected:
         buffer = ""
@@ -192,23 +223,54 @@ def recv():
                 break
 
         packet_type, args = ntw.decoding.decode_packet(buffer)
+        log("INCOMING: " + buffer)
         
         if packet_type == ntw.types["heartbeat_response"]:
-            global player_count
-
             old_player_count = player_count
             player_count = args
 
             if old_player_count != player_count:
                 q.put(ntw.encoding.encode_request_players_packet())
             
+        elif packet_type == ntw.types["game_about_to_start"]:
+            about_to_start = True
+
+            os.system(defaults.CLS)
+            printf("Game is about to start...", delay=0.03)
+
         elif packet_type ==  ntw.types["game_started"]:
-            global started
             started = True
-            printf("The game has started!", delay=0.04)
         
         elif packet_type == ntw.types["players"]:
             players = args
+        
+        elif packet_type == ntw.types["msg_to_print"]:
+            output = str(args)
+            printf(output, delay=0.03)
+        
+        elif packet_type == ntw.types["player_selected"]:
+            user_selected = str(args)
+
+            printf("The silence fills the room...", delay=0.03, finaldelay=0.8)
+            
+            if user_selected == username: # YOU HAVE BEEN SELECTED
+                printf(f"The gun is being handed to you...", delay=0.03, finaldelay=0.2)
+
+                printf("The cold steel rests against your arm. Your pulse quickens — a single click could decide your fate", delay=0.03, finaldelay=0.2)
+                printf("The cylinder clicks into place...", delay=0.03, finaldelay=0.2)
+                printf("Sweat drips...", delay=0.03, finaldelay=0.2)
+                printf("Fate whispers your name...", delay=0.03, finaldelay=0.2)
+                printf("Hit Enter to press the trigger... if you dare...", delay=0.03, finaldelay=0.2)
+
+                inp = input() # waiting for the user to press THE KEY enter
+
+                printf("For a heartbeat, the world stops...", delay=0.03, finaldelay=0.2)
+                printf("Is it over… or has fate spared you this time?", delay=0.03, finaldelay=0.2)
+
+                q.put(ntw.encoding.encode_pressed_trigger_packet()) # you are probably cooked lil bro 💀
+            
+            else: # ANOTHER PERSON HAS BEEN SELECTED
+                printf(f"The gun is being handed to {user_selected}...", delay=0.03)
 
 def validate_username(username: str) -> bool:
     valid_user = "".join(char for char in username if char.isalnum())
@@ -217,17 +279,14 @@ def validate_username(username: str) -> bool:
 username = ""
 valid_username = False
 
-gun_texture = "▄︻テ══━一"
-gun_effect = "💥"
-
 while not valid_username:
     printf("What will you be your username? (1 to 20 alphanumeric characters): ", newline=False, delay=0.04)
-    username = str(input()) or " "
+    username = str(input()).replace(" ", "-") or " "
 
     valid_username = validate_username(username)
     if not valid_username:
         printf("Username is invalid!")
-    
+
 connected = connection_server.connect_to_server(server_ip_input, server_port_input)
 
 if not connected:
@@ -241,7 +300,7 @@ threading.Thread(target=recv, daemon=True).start()
 
 def show_pregame_menu():
     os.system(defaults.CLS)
-    printf("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game")
+    print("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game")
 
 time.sleep(2)
 if connected:
@@ -249,33 +308,33 @@ if connected:
     q.put(ntw.encoding.encode_connection_packet(username))
     threading.Thread(target=send_hb, daemon=True).start()
 
-    printf("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game", delay=0.03)
-    while connected:
-        while not started and connected:
-            if msvcrt.kbhit():
-                key = msvcrt.getch()
-                if key == b'1':
-                    ready = not ready
-                    q.put(ntw.encoding.encode_readiness_packet(ready))
-                    printf("You are " + ("ready" if ready else "no longer ready"), finaldelay=2)
-                    show_pregame_menu()
-                elif key == b'2':
-                    printf("".join(f"{index + 1}. {plrname}" for index, plrname in enumerate(players)), finaldelay=3)
-                    show_pregame_menu()
-                elif key == b'3':
-                    printf(f"{player_count} Players in this lobby", finaldelay=3)
-                    show_pregame_menu()
-                elif key == b'4':
-                    printf("Exiting...", finaldelay=1.5)
-                    csocket.send(ntw.encoding.encode_user_disconnection())
-                    csocket.close()
-                    game_is_running = False
-                    sys.exit(0)
-        
-
+    printf("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game", delay=0.02)
+    while not started and connected and not about_to_start:
+        if msvcrt.kbhit():
+            key = msvcrt.getch()
+            if key == b'1':
+                ready = not ready
+                q.put(ntw.encoding.encode_readiness_packet(ready))
+                printf("You are " + ("ready" if ready else "no longer ready"), finaldelay=2)
+                show_pregame_menu()
+            elif key == b'2':
+                printf("".join(f"{index + 1}. {plrname}\n" for index, plrname in enumerate(players)), finaldelay=3, newline=False)
+                show_pregame_menu()
+            elif key == b'3':
+                printf(f"{player_count} Players in this lobby", finaldelay=3)
+                show_pregame_menu()
+            elif key == b'4':
+                printf("Exiting...", finaldelay=1.5)
+                csocket.send(ntw.encoding.encode_user_disconnection())
+                csocket.close()
+                game_is_running = False
+                sys.exit(0)
+        time.sleep(0.01)
+    
+    if about_to_start and not started:
+        while not started:
             time.sleep(0.01)
-
         
-        if started:
-            ############### start game logic ###############
-            pass
+    if started: ############### Start Game ###############
+        printf("The game has started!", delay=0.03, finaldelay=0.4)
+        os.system(defaults.CLS)

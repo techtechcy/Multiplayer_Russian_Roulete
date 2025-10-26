@@ -1,7 +1,82 @@
+import queue
 import typing
+import logging
+import datetime
 import threading
-import msvcrt
-import time
+
+##################################################### Logging Window ('borrowed' from stackoverflow) #####################################################
+import tkinter as tk
+import tkinter.scrolledtext as ScrolledText
+
+class TextHandler(logging.Handler):
+    # This class allows you to log to a Tkinter Text or ScrolledText widget
+    # Adapted from Moshe Kaplan: https://gist.github.com/moshekaplan/c425f861de7bbf28ef06
+
+    def __init__(self, text):
+        # run the regular Handler __init__
+        logging.Handler.__init__(self)
+        # Store a reference to the Text it will log to
+        self.text = text
+
+    def emit(self, record):
+        msg = self.format(record)
+        def append():
+            self.text.configure(state='normal')
+            self.text.insert(tk.END, msg + '\n')
+            self.text.configure(state='disabled')
+            # Autoscroll to the bottom
+            self.text.yview(tk.END)
+        # This is necessary because we can't modify the Text from other threads
+        self.text.after(0, append)
+
+class myGUI(tk.Frame):
+
+    # This class defines the graphical user interface 
+
+    def __init__(self, parent, *args, **kwargs):
+        tk.Frame.__init__(self, parent, *args, **kwargs)
+        self.root = parent
+        self.build_gui()
+
+    def build_gui(self):                    
+        # Build GUI
+        self.root.title('TEST')
+        self.root.option_add('*tearOff', 'FALSE')
+        self.grid(column=0, row=0, sticky='ew')
+        self.grid_columnconfigure(0, weight=1, uniform='a')
+        self.grid_columnconfigure(1, weight=1, uniform='a')
+        self.grid_columnconfigure(2, weight=1, uniform='a')
+        self.grid_columnconfigure(3, weight=1, uniform='a')
+
+        # Add text widget to display logging info
+        st = ScrolledText.ScrolledText(self, state='disabled')
+        st.configure(font='TkFixedFont')
+        st.grid(column=0, row=1, sticky='w', columnspan=4)
+
+        # Create textLogger
+        text_handler = TextHandler(st)
+
+        # Logging configuration
+        logging.basicConfig(filename='test.log',
+            level=logging.INFO, 
+            format='%(asctime)s - %(levelname)s - %(message)s')        
+
+        # Add the handler to logger
+        logger = logging.getLogger()        
+        logger.addHandler(text_handler)
+
+    @staticmethod
+    def worker(logger: queue.Queue):
+        # Skeleton worker function, runs in separate thread
+        while True:
+            time = f"{datetime.datetime.now().hour}:{datetime.datetime.now().minute}"
+            raw_msg = logger.get()
+            msg = f"{time}: {raw_msg}"
+            
+            logging.info(msg)
+            
+            
+##################################################### Logging Window ('borrowed' from stackoverflow) #####################################################
 
 class ntw:
     default_port = 2046
@@ -11,20 +86,24 @@ class ntw:
     end = "*)"
     types = {
         "heartbeat": "hbt",
-        "heartbeat_response": "hbt_rsp",
+        "heartbeat_response": "hbt_rsp", # acts as ACK and sends player count
         "connection": "con",
         "readiness": "rdy",
         "invalid_packet": "inv",
         "request_players": "rq_ply",
         "players": "plrs",
         "game_started": "gm_strt",
+        "game_about_to_start": "gm_abtstr",
         "pressed_trigger": "prs_trg",
         "player_eliminated": "ply_elim",
-        "user_disconnection": "usr_dsc"
+        "user_disconnection": "usr_dsc",
+        "message_to_print": "msg_prt",
+        "player_selected": "ply_sel" # sends what player was selected
     }
     
     max_packet_size = 1024
     arg_list_sep = "|l|"
+    
     
     class encoding:
         @staticmethod
@@ -75,6 +154,9 @@ class ntw:
         def encode_user_disconnection() -> bytes:
             return (ntw.start + ntw.sep + ntw.types["user_disconnection"] + ntw.sep + ntw.end).encode()
         
+        @staticmethod
+        def encode_game_about_to_start_packet() -> bytes:
+            return (ntw.start + ntw.sep + ntw.types["game_about_to_start"] + ntw.sep + ntw.end).encode()
 
         
             
@@ -142,21 +224,50 @@ class ntw:
             elif packet_type == ntw.types["user_disconnection"]:
                 return (packet_type, 1)
             
+            elif packet_type == ntw.types["message_to_print"]:
+                return (packet_type, (ntw.decoding._decode_message_to_print_packet(data)))
             
+            elif packet_type == ntw.types["player_selected"]:
+                return (packet_type, (ntw.decoding._decode_player_selected_packet(data)))
+            
+        
+        @staticmethod
+        def seperate_parts(packet: bytes): # type: ignore
+            parts =  packet.decode().split(ntw.sep)
+            return parts
+
+            
+        
+        
+        
+        
+        
+            
+        @staticmethod
+        def _decode_message_to_print_packet(data: bytes) -> bool:
+            parts = ntw.decoding.seperate_parts(data)
+            if len(parts) == 3 or parts[1] != ntw.types["heartbeat"]:
+                return False
             
             
             
         
         @staticmethod
+        def _decode_player_selected_packet(data: bytes) -> bool:
+            parts = ntw.decoding.seperate_parts(data)
+            if len(parts) == 3 or parts[1] != ntw.types["heartbeat"]:
+                return False
+        
+        @staticmethod
         def _decode_heartbeat_packet(data: bytes) -> bool:
-            parts = data.decode().split(ntw.sep)
+            parts = ntw.decoding.seperate_parts(data)
             if len(parts) == 3 or parts[1] != ntw.types["heartbeat"]:
                 return False
             return True
         
         @staticmethod
         def _decode_heartbeat_response_packet(data: bytes):
-            parts = data.decode().split(ntw.sep)
+            parts = ntw.decoding.seperate_parts(data)
             if len(parts) != 4 or parts[1] != ntw.types["heartbeat_response"]:
                 return 0
             
@@ -169,7 +280,7 @@ class ntw:
         
         @staticmethod
         def _decode_connection_packet(data: bytes) -> str | int:
-            parts = data.decode().split(ntw.sep)
+            parts = ntw.decoding.seperate_parts(data)
             if len(parts) != 4 or parts[1] != ntw.types["connection"]:
                 return 0
             
@@ -178,7 +289,7 @@ class ntw:
     
         @staticmethod
         def _decode_readiness_packet(data: bytes) -> bool | int:
-            parts = data.decode().split(ntw.sep)
+            parts = ntw.decoding.seperate_parts(data)
             if len(parts) != 4 or parts[1] != ntw.types["readiness"]:
                 print("Invalid Packet for Readiness")
                 return 0
@@ -192,7 +303,7 @@ class ntw:
             
         @staticmethod
         def _decode_invalid_packet(data: bytes) -> bool | int:
-            parts = data.decode().split(ntw.sep)
+            parts = ntw.decoding.seperate_parts(data)
             if len(parts) < 2:
                 return 0
             candidate = parts[1]
@@ -208,7 +319,7 @@ class ntw:
         
         @staticmethod
         def _decode_request_players_packet(data: bytes) -> bool | int:
-            parts = data.decode().split(ntw.sep)
+            parts = ntw.decoding.seperate_parts(data)
             if len(parts) != 3:
                 print("Unexpected Amount of Parts")
                 return 0
@@ -223,25 +334,22 @@ class ntw:
         
         @staticmethod
         def _decode_players_packet(data: bytes) -> list[str] | int:
-            parts = data.decode().split(ntw.sep)
+            parts = ntw.decoding.seperate_parts(data)
             if len(parts) < 3 or parts[1] != ntw.types["players"]:
                 return 0
+        
+            # encoded_player_list = ntw.arg_list_sep.join(user for user in usernames)
+            # packet_data = (ntw.start + ntw.sep + ntw.types["players"] + ntw.sep + encoded_player_list + ntw.sep + ntw.end).encode()
+            # print(f"Sending Player Packet: {packet_data}")
+            # return packet_data
             
             # raw_player_list = parts[]
-            
-            players = []
-            for i in range(2, len(parts)):
-                candidate = parts[i]
-                if candidate.endswith(ntw.end):
-                    candidate = candidate[:-len(ntw.end)]
-                if candidate:
-                    players.append(candidate)
-            
+            players = parts[2].split(ntw.arg_list_sep)
             return players
         
         @staticmethod
         def _decode_game_started_packet(data: bytes) -> bool | int:
-            parts = data.decode().split(ntw.sep)
+            parts = ntw.decoding.seperate_parts(data)
             if len(parts) < 2:
                 return 0
             candidate = parts[1]
@@ -257,7 +365,7 @@ class ntw:
         
         @staticmethod
         def _decode_pressed_trigger_packet(data: bytes) -> bool | int:
-            parts = data.decode().split(ntw.sep)
+            parts = ntw.decoding.seperate_parts(data)
             if len(parts) < 2:
                 return 0
             candidate = parts[1]
@@ -273,7 +381,7 @@ class ntw:
         
         @staticmethod
         def _decode_player_eliminated_packet(data: bytes) -> str | int:
-            parts = data.decode().split(ntw.sep)
+            parts = ntw.decoding.seperate_parts(data)
             if len(parts) != 3 or parts[1] != ntw.types["player_eliminated"]:
                 return 0
             
