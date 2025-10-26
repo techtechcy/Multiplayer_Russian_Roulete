@@ -221,8 +221,8 @@ def recv():
 
             if buffer.startswith(ntw.start) and buffer.endswith(ntw.end):
                 break
-            log("INCOMING: " + buffer)
-
+        
+        log("INCOMING: " + buffer)
         packet_type, args = ntw.decoding.decode_packet(buffer)
         
         if packet_type == ntw.types["heartbeat_response"]:
