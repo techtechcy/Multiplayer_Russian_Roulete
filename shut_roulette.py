@@ -100,19 +100,25 @@ csocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 class server:
     def connect_to_server(self, ip: str, port: int) -> bool:
+        log(f"Establishing connection with {ip}:{str(port)}")
         printf("Establishing connection...", delay=0.04)
         
         try:
             csocket.connect((ip, port))
         except socket.timeout:
+            log(f"Connection failed: Connection Timeout")
             printf("Connection timed out, please try again", delay=0.04, finaldelay=1.25)
         except socket.gaierror:
+            log(f"Connection failed: Invalid Hostname or IP Address")
             printf("Invalid hostname or IP address - did you type in the ip and port correctly?", delay=0.04, finaldelay=1.25)
         except OSError as e:
+            log(f"Connection failed: OS/Network Error")
             printf("Couldn't connect to the server due to an os or network error - did you type in the ip and port correctly?", delay=0.04, finaldelay=1.25)
         except:
+            log(f"Connection failed: Unknown Error")
             printf("Unknown error, please try again", delay=0.04, finaldelay=1.25)
         else:
+            log(f"Established a connection with {ip}:{str(port)} successfully")
             printf("Established a connection with the server successfully")
             return True
         return False
