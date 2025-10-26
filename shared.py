@@ -80,6 +80,7 @@ class myGUI(tk.Frame):
 
 class ntw:
     default_port = 2046
+    default_host = "localhost"
     
     start = "(*"
     sep = ","
@@ -273,7 +274,7 @@ class ntw:
         @staticmethod
         def _decode_player_selected_packet(data: bytes) -> str | bool:# type: ignore
             parts = ntw.decoding.seperate_parts(data)
-            if len(parts) == 4 or parts[1] != ntw.types["player_selected"]:
+            if len(parts) != 4 or parts[1] != ntw.types["player_selected"]:
                 print("Decoding Error: Malformed player selected packet")
                 return False
             return parts[2]
@@ -281,7 +282,7 @@ class ntw:
         @staticmethod
         def _decode_heartbeat_packet(data: bytes) -> bool:
             parts = ntw.decoding.seperate_parts(data)
-            if len(parts) == 3 or parts[1] != ntw.types["heartbeat"]:
+            if len(parts) != 3 or parts[1] != ntw.types["heartbeat"]:
                 print("Decoding Error: Malformed heartbeat packet")
                 return False
             return True
