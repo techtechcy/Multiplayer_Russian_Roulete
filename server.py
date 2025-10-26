@@ -173,7 +173,7 @@ class client:
         self.csocket = csocket
         self.username = username
         
-    def _send_packet(self, data: str):
+    def send_packet(self, data: str):
         self.csocket.send(data.encode())
         
     @staticmethod
