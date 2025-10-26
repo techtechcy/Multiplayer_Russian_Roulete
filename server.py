@@ -192,25 +192,24 @@ while True:
         
         while True:
             for user in user_list:
-                user.sendall(b"It's your turn! Pulling the trigger...\n")
+                user.send_packet(b"It's your turn! Pulling the trigger...\n")
                 sleep(2)
                 
                 if gun.pull_trigger():
-                    user.sendall(b"Bang! You are eliminated.\n")
+                    user.send_packet(b"Bang! You are eliminated.\n")
                     user_list.remove(user)
                     server.ready_users.remove(user)
                     
                     if len(user_list) == 1:
-                        user_list[0].sendall(b"You are the last player standing! You win!\n")
+                        user_list[0].send_packet(b"You are the last player standing! You win!\n")
                         print("Game over. Restarting in 10 seconds...")
                         sleep(10)
                         gun = Gun()
                         break
                 else:
-                    user.sendall(b"Click! You survived this round.\n")
+                    user.send_packet(b"Click! You survived this round.\n")
     sleep(3)
-        
-    
+###################### Game Loop #####################
     
     
     

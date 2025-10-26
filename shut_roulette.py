@@ -222,7 +222,7 @@ valid_username = False
 
 while not valid_username:
     printf("What will you be your username? (1 to 20 alphanumeric characters): ", newline=False, delay=0.04)
-    username = str(input())
+    username = str(input()) or " "
 
     valid_username = validate_username(username)
     if not valid_username:
@@ -231,7 +231,7 @@ while not valid_username:
 connected = connection_server.connect_to_server(server_ip_input, server_port_input)
 
 if not connected:
-    csocket.send(ntw.encoding.encode_user_disconnection()) # user_disconnection
+    csocket.send(ntw.encoding.encode_user_disconnection())
     csocket.close()
     game_is_running = False
     sys.exit(0)
@@ -260,7 +260,7 @@ if connected:
                     printf(f"{player_count} Players in this lobby: {players}")
                 elif key == b'4':
                     printf("Exiting...", finaldelay=1.5)
-                    csocket.send(ntw.encoding.encode_user_disconnection()) # user_disconnection
+                    csocket.send(ntw.encoding.encode_user_disconnection())
                     csocket.close()
                     game_is_running = False
                     sys.exit(0)
