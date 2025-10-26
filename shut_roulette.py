@@ -10,6 +10,7 @@ import time
 import threading
 from shared import TextHandler,myGUI
 import tkinter as tk
+from collections import Counter
 
 gun_texture = "▄︻テ══━一"
 gun_effect = "💥"
@@ -32,56 +33,69 @@ def main():
 logging_window = threading.Thread(daemon=True, target=main, name="Client Logging Window")
 logging_window.start()
 
-
-
 def log(msg):
     logger.put_nowait(msg)
-    
-
-os.system("cls")
 
 class defaults:
     GAME_NAME_NS = "MP_Russian_Roulette"
     GAME_NAME_WS = "Multiplayer Russian Roulette"
     CLS = "cls"
 
+def clear_console():
+    stop_all_printfs()
+    os.system(defaults.CLS) 
+
 def format_list(list: list | tuple):
     return str(list).replace("[", "").replace("]", "")
 
+_active_printfs = set()
+_active_lock = threading.Lock()
+
+def stop_all_printfs():
+    with _active_lock:
+        for flag in list(_active_printfs):
+            flag.set()
+        _active_printfs.clear()
+
 def printf(text: str, delay: float = 0.06, newline: bool = True, finaldelay: float | None = None):
+    stop_all_printfs()
+
+    cancel_flag = threading.Event()
+    with _active_lock:
+        _active_printfs.add(cancel_flag)
+
     text_list = list(text)
 
     for char in text:
+        if cancel_flag.is_set():
+            break
         print(char, end="", flush=True)
         text_list.remove(char)
-        
         time.sleep(delay)
 
         should_break = False
-        
         while msvcrt.kbhit():
             key = msvcrt.getch()
-
             if key == b'\r':
                 print("".join(char2 for char2 in text_list), end="", flush=True)
                 should_break = True
                 break
-        
-        
-        if should_break:
+
+        if should_break or cancel_flag.is_set():
             break
-    
+
     if newline:
         print("\n", end="", flush=True)
-    
+
     if finaldelay:
         time.sleep(finaldelay)
-
         while msvcrt.kbhit():
             msvcrt.getch()
+
+    with _active_lock:
+        _active_printfs.discard(cancel_flag)
             
 game_is_running = True
-
 csocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 class server:
@@ -91,13 +105,13 @@ class server:
         try:
             csocket.connect((ip, port))
         except socket.timeout:
-            printf("Connection failed: timed out", delay=0.04)
+            printf("Connection timed out, please try again", delay=0.04, finaldelay=1.25)
         except socket.gaierror:
-            printf("Invalid hostname or IP address - did you type in the ip and port correctly?", delay=0.04)
+            printf("Invalid hostname or IP address - did you type in the ip and port correctly?", delay=0.04, finaldelay=1.25)
         except OSError as e:
-            printf("OS or Network Error", delay=0.04)
+            printf("Couldn't connect to the server due to an os or network error - did you type in the ip and port correctly?", delay=0.04, finaldelay=1.25)
         except:
-            printf("Unknown error, please try again", delay=0.04)
+            printf("Unknown error, please try again", delay=0.04, finaldelay=1.25)
         else:
             printf("Established a connection with the server successfully")
             return True
@@ -120,7 +134,7 @@ printf("Welcome to Shut Roulette!")
 time.sleep(0.5)
 printf("----------------------------------------------", delay=0.01, newline=True)
 
-server_ip_input = input("Enter server IP address: ") or "localhost"
+server_ip_input = input(f"Enter server IP address (press Enter for default IP: {ntw.default_host}): ") or str(ntw.default_host)
 server_port_input = None
 
 while server_port_input == None:
@@ -168,7 +182,8 @@ def sendall():
         time.sleep(0.05) # SMALL DELAY SO THE SERVER WON'T OVERFLOW WITH PACKETS
 
     try:
-        csocket.send(ntw.encoding.encode_user_disconnection())
+        if connected:
+            csocket.send(ntw.encoding.encode_user_disconnection())
         csocket.close()
     except Exception:
         pass
@@ -191,7 +206,8 @@ def recv():
             if not response:
                 connected = False
                 printf("Server has closed the connection")
-                csocket.send(ntw.encoding.encode_user_disconnection())
+                if connected:
+                    csocket.send(ntw.encoding.encode_user_disconnection())
                 csocket.close()
                 return
 
@@ -213,7 +229,7 @@ def recv():
         elif packet_type == ntw.types["game_about_to_start"]:
             about_to_start = True
 
-            os.system(defaults.CLS)
+            clear_console()
             printf("Game is about to start...", delay=0.03)
 
         elif packet_type ==  ntw.types["game_started"]:
@@ -251,17 +267,25 @@ def recv():
                 printf(f"The room has gone silent while staring at {user_selected} as the gun was being handed to them...", delay=0.03)
         
         elif packet_type == ntw.types["clear_terminal"]:
-            os.system(defaults.CLS)
+            clear_console()
 
 def validate_username(username: str) -> bool:
-    valid_user = "".join(char for char in username if char.isalnum())
-    return (valid_user == username and len(valid_user) == len(username) and len(valid_user) >= 1 and len(valid_user) <= 20)
+    valid_user = "".join(char for char in username if char.isalnum() or char == "_")
+    counts = Counter(valid_user)
+
+    underscore_count = counts.get("_") or 0
+
+    # Rules: Allow one underscore, that cannot be located at the start or the end of the username, neither can it start with a number, and must be between 1 and 20 characters
+    return (
+        valid_user == username and len(valid_user) == len(username) and len(valid_user) >= 1 and len(valid_user) <= 20 and underscore_count <= 1
+        and underscore_count >= 0 and not username.startswith("_") and not username.endswith("_") and not username[0].isnumeric()
+    )
 
 username = ""
 valid_username = False
 
 while not valid_username:
-    printf("What will you be your username? (1 to 20 alphanumeric characters): ", newline=False, delay=0.04)
+    printf("What will you be your username? (1 to 20 alphanumeric characters, 1 optional underscore that cannot be located on the start or end, first letter cannot be a number): ", newline=False, delay=0.02)
     username = str(input()).replace(" ", "-") or " "
 
     valid_username = validate_username(username)
@@ -271,7 +295,6 @@ while not valid_username:
 connected = connection_server.connect_to_server(server_ip_input, server_port_input)
 
 if not connected:
-    csocket.send(ntw.encoding.encode_user_disconnection())
     csocket.close()
     game_is_running = False
     sys.exit(0)
@@ -281,12 +304,12 @@ threading.Thread(target=recv, daemon=True).start()
 
 def show_pregame_menu():
     if not started and not about_to_start and connected:
-        os.system(defaults.CLS)
+        clear_console()
         print("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game")
 
 time.sleep(2)
 if connected:
-    os.system(defaults.CLS)
+    clear_console()
     q.put(ntw.encoding.encode_connection_packet(username))
     threading.Thread(target=send_hb, daemon=True).start()
 
@@ -307,7 +330,8 @@ if connected:
                 show_pregame_menu()
             elif key == b'4':
                 printf("Exiting...", finaldelay=1.5)
-                csocket.send(ntw.encoding.encode_user_disconnection())
+                if connected:
+                    csocket.send(ntw.encoding.encode_user_disconnection())
                 csocket.close()
                 game_is_running = False
                 sys.exit(0)
@@ -319,7 +343,7 @@ if connected:
         
     if started: ############### Start Game ###############
         printf("The game has started!", delay=0.03, finaldelay=0.4)
-        os.system(defaults.CLS)
+        clear_console()
 
         while started:
             time.sleep(0.5)
