@@ -155,34 +155,6 @@ def sendall():
             packet = q.get()  # blocking wait for next packet
             log("OUTGOING: " + packet.decode())
             csocket.send(packet)
-            
-            # # Handle heartbeat acknowledgment
-            # if packet == ntw.encoding.encode_heartbeat_packet():
-            #     csocket.settimeout(3.0)  # prevent infinite blocking
-            #     ack_response = None
-
-            #     try:
-            #         ack_response = csocket.recv(ntw.max_packet_size)
-            #     except socket.timeout:
-            #         print("Heartbeat ACK timeout:", ack_response)
-            #         connected = False
-            #         break
-
-            #     decoded = ntw.decoding.decode_packet(ack_response)
-            #     if not decoded:
-            #         print("Invalid ACK packet")
-            #         connected = False
-            #         break
-
-            #     packet_type = decoded[0]
-            #     if packet_type != ntw.types["heartbeat_response"]:
-            #         print("Unexpected heartbeat response: Packet: ", ack_response)
-            #         connected = False
-            #         break
-
-            #     # Reset timeout after successful ACK
-            #     csocket.settimeout(None)
-
         except (socket.error, OSError) as e:
             print("Socket error:", e)
             connected = False
@@ -192,7 +164,7 @@ def sendall():
             connected = False
             break
 
-        time.sleep(0.05) # SMALL DELAY SO THE SERVER WONT OVERFLOW WITH PACKETS
+        time.sleep(0.05) # SMALL DELAY SO THE SERVER WON'T OVERFLOW WITH PACKETS
 
     try:
         csocket.send(ntw.encoding.encode_user_disconnection())
@@ -265,7 +237,7 @@ def recv():
                 inp = input() # waiting for the user to press THE KEY enter
 
                 printf("For a heartbeat, the world stops...", delay=0.03, finaldelay=0.2)
-                printf("Is it over… or has fate spared you this time?", delay=0.03, finaldelay=0.2)
+                printf("Is it over... or has fate spared you this time?", delay=0.03, finaldelay=0.2)
 
                 q.put(ntw.encoding.encode_pressed_trigger_packet()) # you are probably cooked lil bro 💀
             
@@ -338,3 +310,6 @@ if connected:
     if started: ############### Start Game ###############
         printf("The game has started!", delay=0.03, finaldelay=0.4)
         os.system(defaults.CLS)
+
+        while started:
+            time.sleep(0.5)

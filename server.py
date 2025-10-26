@@ -1,10 +1,15 @@
+import os
 import socket
 import random
-from time import sleep
 import queue
 import threading
+import tkinter as tk
+import logging
+from tkinter import *
 from shared import ntw
-import os
+from time import sleep
+from tkinter.ttk import *
+
 
 
 os.system("cls")
@@ -16,38 +21,6 @@ class defaults:
     max_clients = numbers_of_chambers - 1
     CLS = "cls"
     game_starting_delay = 5 # in seconds
-    
-    
-    
-    
-def cprint(text: str):
-    print(f"[CLIENT_THREAD]: {text}")
-    
-    
-    
-    
-class client:  # type: ignore
-    def __init__(self, csocket: socket.socket, client_ip: str, client_port: str, username: str): 
-        self.client_ip = client_ip
-        self.client_port = client_port
-        self.csocket = csocket
-        self.username = username
-    
-    def send_packet(self, data: str | bytes):
-        if type(data) == str:
-            data = data.encode()
-        self.csocket.send(data)  # type: ignore
-    
-
-
-    
-
-            
-
-
-   
-user_with_gun = None
-player_list: list[client] = []
 
 class Gun:
     def __init__(self):
@@ -147,16 +120,7 @@ class _server:
                     cprint(f"{client.get_user_from_ip(client_address[0])}: Disconnected Gracefully")
                     
                     
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
+
                     
                 
             except Exception as e:
@@ -164,6 +128,91 @@ class _server:
                 cprint(f"Player List: {player_list}")
                 player_list.remove(client.get_user_from_ip(client_address[0]))  # type: ignore
                 return
+
+gun = Gun()
+server = _server()
+accept_connections_thread = threading.Thread(target=server.start_accepting_connections, daemon=True)
+
+user_with_gun = None
+player_list: list = []
+
+
+
+
+
+
+
+
+class GUI(tk.Frame):
+
+    # This class defines the graphical user interface 
+
+    def __init__(self, parent: tk.Tk, server: _server, *args, **kwargs):
+        tk.Frame.__init__(self, parent, *args, **kwargs)
+        self.root = parent
+        self.build_gui()
+    
+    def build_gui(self):                    
+        # Build GUI
+        self.root.title('Packet Testing')
+        
+        
+        def broadcast_game_started_packet():
+            print("Broadcasting Game Started Packet...")
+            server.broadcast_packet(ntw.encoding.encode_game_started_packet())
+        
+        
+        ################### Buttons ####################
+        broadcast_game_started_btn = tk.Button(self.root, text="Broadcast Packet: Game Started", command=broadcast_game_started_packet)
+        broadcast_game_started_btn.pack(pady=10)
+        ################################################
+
+
+
+def main():
+    root = tk.Tk()
+    GUI(root, server)
+
+    root.mainloop()
+
+
+threading.Thread(target=main, daemon=True).start()
+    
+    
+def cprint(text: str):
+    print(f"[CLIENT_THREAD]: {text}")
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+class client:  # type: ignore
+    def __init__(self, csocket: socket.socket, client_ip: str, client_port: str, username: str): 
+        self.client_ip = client_ip
+        self.client_port = client_port
+        self.csocket = csocket
+        self.username = username
+    
+    def send_packet(self, data: str | bytes):
+        if type(data) == str:
+            data = data.encode()
+        self.csocket.send(data)  # type: ignore
+    
+
+
+    
+
+            
+
+
+   
+
             
 
 class client:
@@ -187,9 +236,6 @@ class client:
         
 
 
-gun = Gun()
-server = _server()
-accept_connections_thread = threading.Thread(target=server.start_accepting_connections, daemon=True)
 
 
     
