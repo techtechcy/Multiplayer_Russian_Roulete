@@ -225,7 +225,7 @@ def recv():
         log("INCOMING: " + buffer)
         packet_type, args = ntw.decoding.decode_packet(buffer)
         
-        if packet_type == ntw.types["heartbeat_response"]:
+        if packet_type == ntw.packet_types["heartbeat_response"]["raw"]:
             old_player_count = player_count
             player_count = args
 
@@ -238,10 +238,10 @@ def recv():
             clear_console()
             printf("Game is about to start...", delay=0.03)
 
-        elif packet_type ==  ntw.types["game_started"]:
+        elif packet_type ==  ntw.packet_types["game_started"]["raw"]:
             started = True
         
-        elif packet_type == ntw.types["players"]:
+        elif packet_type == ntw.packet_types["players"]["raw"]:
             players = args
         
         elif packet_type == ntw.types["message_to_print"]:

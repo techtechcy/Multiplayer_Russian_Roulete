@@ -101,6 +101,7 @@ class ntw:
         "invalid_packet": "inv",
         "request_players": "rq_ply",
         "players": "plrs",
+        
         "game_started": "gm_strt",
         "game_about_to_start": "gm_abtstr",
         "pressed_trigger": "prs_trg",
@@ -215,28 +216,28 @@ class ntw:
     class encoding:
         @staticmethod
         def encode_heartbeat_packet() -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["heartbeat"] + ntw.sep + ntw.end).encode()
+            return (ntw.start + ntw.sep + ntw.packet_types["heartbeat"]["raw"] + ntw.sep + ntw.end).encode()
         
         @staticmethod
         def encode_heartbeat_response_packet(player_count: int) -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["heartbeat_response"] + ntw.sep + str(player_count) + ntw.sep + ntw.end).encode()
+            return (ntw.start + ntw.sep + ntw.packet_types["heartbeat_response"]["raw"] + ntw.sep + str(player_count) + ntw.sep + ntw.end).encode()
         
         @staticmethod
         def encode_connection_packet(username: str) -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["connection"] + ntw.sep + username + ntw.sep + ntw.end).encode()
+            return (ntw.start + ntw.sep + ntw.packet_types["connection"]["raw"] + ntw.sep + username + ntw.sep + ntw.end).encode()
         
         @staticmethod
         def encode_readiness_packet(is_ready: bool) -> bytes:
             readiness_str = "1" if is_ready else "0"
-            return (ntw.start + ntw.sep + ntw.types["readiness"] + ntw.sep + readiness_str + ntw.sep + ntw.end).encode()
+            return (ntw.start + ntw.sep + ntw.packet_types["readiness"]["raw"] + ntw.sep + readiness_str + ntw.sep + ntw.end).encode()
         
         @staticmethod
         def encode_invalid_packet() -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["invalid_packet"] + ntw.end).encode()
+            return (ntw.start + ntw.sep + ntw.packet_types["invalid_packet"]["raw"] + ntw.end).encode()
         
         @staticmethod
         def encode_request_players_packet() -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["request_players"] + ntw.sep + ntw.end).encode()
+            return (ntw.start + ntw.sep + ntw.packet_types["request_players"]["raw"] + ntw.sep + ntw.end).encode()
         
         @staticmethod
         def encode_pressed_trigger_packet() -> bytes:
@@ -249,7 +250,7 @@ class ntw:
         @staticmethod
         def encode_players_packet(usernames: list[str]) -> bytes:
             encoded_player_list = ntw.arg_list_sep.join(user for user in usernames)
-            packet_data = (ntw.start + ntw.sep + ntw.types["players"] + ntw.sep + encoded_player_list + ntw.sep + ntw.end).encode()
+            packet_data = (ntw.start + ntw.sep + ntw.packet_types["players"]["raw"] + ntw.sep + encoded_player_list + ntw.sep + ntw.end).encode()
             print(f"Sending Player Packet: {packet_data}")
             return packet_data
         
@@ -263,7 +264,7 @@ class ntw:
         
         @staticmethod
         def encode_game_started_packet(number_of_chambers: int = 6) -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["game_started"] + ntw.sep + str(number_of_chambers) + ntw.sep + ntw.end).encode()
+            return (ntw.start + ntw.sep + ntw.packet_types["game_started"]["raw"] + ntw.sep + str(number_of_chambers) + ntw.sep + ntw.end).encode()
         
         @staticmethod
         def encode_clear_terminal_packet() -> bytes:
@@ -284,17 +285,17 @@ class ntw:
             
             ############# Malformed Packet Checks #############
             if len(parts) < 3 or parts[0] != ntw.start:
-                return (ntw.types["invalid_packet"], (None))  # type: ignore
+                return (ntw.packet_types["invalid_packet"]["raw"], (None))  # type: ignore
             
             if parts[len(parts) - 1] != ntw.end:
-                return (ntw.types["invalid_packet"], (None))  # type: ignore
+                return (ntw.packet_types["invalid_packet"]["raw"], (None))  # type: ignore
             
             
             ###################################################
             
             
             if len(parts) < 2:
-                return (ntw.types["invalid_packet"], (None)) # type: ignore
+                return (ntw.packet_types["invalid_packet"]["raw"], (None)) # type: ignore
             
             packet_type_raw = parts[1]
             if packet_type_raw.endswith(ntw.end):
@@ -302,25 +303,25 @@ class ntw:
             else:
                 packet_type = packet_type_raw
             
-            if packet_type == ntw.types["heartbeat_response"]:
+            if packet_type == ntw.packet_types["heartbeat_response"]["raw"]:
                 return (packet_type, (ntw.decoding._decode_heartbeat_response_packet(data))) # type: ignore
             
-            if packet_type == ntw.types["heartbeat"]:
+            if packet_type == ntw.packet_types["heartbeat"]["raw"]:
                 return (packet_type, (ntw.decoding._decode_heartbeat_packet(data))) # type: ignore
     
-            elif packet_type == ntw.types["connection"]:
+            elif packet_type == ntw.packet_types["connection"]["raw"]:
                 return (packet_type, (ntw.decoding._decode_connection_packet(data)))# type: ignore
             
-            elif packet_type == ntw.types["readiness"]:
+            elif packet_type == ntw.packet_types["readiness"]["raw"]:
                 return (packet_type, (ntw.decoding._decode_readiness_packet(data)))# type: ignore
             
-            elif packet_type == ntw.types["invalid_packet"]:
+            elif packet_type == ntw.packet_types["invalid_packet"]["raw"]:
                 return (packet_type, (ntw.decoding._decode_invalid_packet(data)))# type: ignore
             
-            elif packet_type == ntw.types["request_players"]:
+            elif packet_type == ntw.packet_types["request_players"]["raw"]:
                 return (packet_type, (ntw.decoding._decode_request_players_packet(data)))# type: ignore
             
-            elif packet_type == ntw.types["game_started"]:
+            elif packet_type == ntw.packet_types["game_started"]["raw"]:
                 return (packet_type, (ntw.decoding._decode_game_started_packet(data)))# type: ignore
             
             elif packet_type == ntw.types["pressed_trigger"]:
@@ -329,7 +330,7 @@ class ntw:
             elif packet_type == ntw.types["player_eliminated"]:
                 return (packet_type, (ntw.decoding._decode_player_eliminated_packet(data)))# type: ignore
             
-            elif packet_type == ntw.types["players"]:
+            elif packet_type == ntw.packet_types["players"]["raw"]:
                 return (packet_type, (ntw.decoding._decode_players_packet(data),)) # type: ignore
             
             elif packet_type == ntw.types["user_disconnection"]: 
@@ -414,7 +415,7 @@ class ntw:
         @staticmethod
         def _decode_heartbeat_packet(data: bytes) -> bool:
             parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 3 or parts[1] != ntw.types["heartbeat"]:
+            if len(parts) != 3 or parts[1] != ntw.packet_types["heartbeat"]["raw"]:
                 print("Decoding Error: Malformed heartbeat packet")
                 return False
             return True
@@ -422,7 +423,7 @@ class ntw:
         @staticmethod
         def _decode_heartbeat_response_packet(data: bytes):
             parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 4 or parts[1] != ntw.types["heartbeat_response"]:
+            if len(parts) != 4 or parts[1] != ntw.packet_types["heartbeat_response"]["raw"]:
                 print("Decoding Error: Malformed hjeartbeat response packet")
                 return 0
             
@@ -436,7 +437,7 @@ class ntw:
         @staticmethod
         def _decode_connection_packet(data: bytes) -> str | int:
             parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 4 or parts[1] != ntw.types["connection"]:
+            if len(parts) != 4 or parts[1] != ntw.packet_types["connection"]["raw"]:
                 print("Decoding Error: Malformed connection packet")
                 return 0
             
@@ -446,7 +447,7 @@ class ntw:
         @staticmethod
         def _decode_readiness_packet(data: bytes) -> bool | int:
             parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 4 or parts[1] != ntw.types["readiness"]:
+            if len(parts) != 4 or parts[1] != ntw.packet_types["readiness"]["raw"]:
                 print("Invalid Packet for Readiness")
                 return 0
 
@@ -469,7 +470,7 @@ class ntw:
                 pass
             else:
                 pass
-            if candidate != ntw.types["invalid_packet"]:
+            if candidate != ntw.packet_types["invalid_packet"]["raw"]:
                 return 0
             return True
         
@@ -480,7 +481,7 @@ class ntw:
                 print("Unexpected Amount of Parts")
                 return 0
             candidate = parts[1]
-            if candidate != ntw.types["request_players"]:
+            if candidate != ntw.packet_types["request_players"]["raw"]:
                 print("Malformed request players packet 1")
                 return 0
             if not parts[2].endswith(ntw.end):
@@ -491,12 +492,12 @@ class ntw:
         @staticmethod
         def _decode_players_packet(data: bytes) -> list[str] | int:
             parts = ntw.decoding.seperate_parts(data)
-            if len(parts) < 3 or parts[1] != ntw.types["players"]:
+            if len(parts) < 3 or parts[1] != ntw.packet_types["players"]["raw"]:
                 print("Decoding Error: Malformed players packet")
                 return 0
         
             # encoded_player_list = ntw.arg_list_sep.join(user for user in usernames)
-            # packet_data = (ntw.start + ntw.sep + ntw.types["players"] + ntw.sep + encoded_player_list + ntw.sep + ntw.end).encode()
+            # packet_data = (ntw.start + ntw.sep + ntw.packet_types["players"]["raw"] + ntw.sep + encoded_player_list + ntw.sep + ntw.end).encode()
             # print(f"Sending Player Packet: {packet_data}")
             # return packet_data
             
@@ -518,7 +519,7 @@ class ntw:
                 pass
             else:
                 pass
-            if candidate != ntw.types["game_started"]:
+            if candidate != ntw.packet_types["game_started"]["raw"]:
                 return 0
             return True
         

@@ -90,13 +90,13 @@ class _server:
                     cprint(f"Received Heartbeat, responding with {ntw.encoding.encode_heartbeat_response_packet(len(player_list))}")
                     client_socket.send(ntw.encoding.encode_heartbeat_response_packet(len(player_list)))
                 
-                elif packet_type == ntw.types["connection"]:
+                elif packet_type == ntw.packet_types["connection"]["raw"]:
                     username = str(packet_args)
                     player_list.append(client(csocket=client_socket, client_ip=client_address[0], client_port=client_address[1], username=username)) # type: ignore
                     cprint(f"User '{username}' connected from {client_address[0]}:{client_address[1]}")
                     cprint(f"Player List: {player_list}")
                 
-                elif packet_type == ntw.types["readiness"]:
+                elif packet_type == ntw.packet_types["readiness"]["raw"]:
                     is_ready = packet_args
                     if is_ready:
                         server.ready_users.append(client_socket)
@@ -105,10 +105,10 @@ class _server:
                         server.ready_users.remove(client_socket)
                         cprint(f"User from {client_address[0]}:{client_address[1]} is no longer ready")
                 
-                elif packet_type == ntw.types["invalid_packet"]:
+                elif packet_type == ntw.packet_types["invalid_packet"]["raw"]:
                     cprint(f"Received invalid packet from client: {packet_args}, {full_packet}")
                     
-                elif packet_type == ntw.types["request_players"]:
+                elif packet_type == ntw.packet_types["request_players"]["raw"]:
                     username_list = []
                     for user in player_list:
                         username_list.append(user.username)
@@ -280,7 +280,7 @@ def game():
 
 while True:
     if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
-        sleep(delay_to_verify_ready_players)
+        sleep(defaults.delay_to_verify_ready_players)
         if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
             prepare_game()
             
