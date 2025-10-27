@@ -52,7 +52,7 @@ class _server:
     def start_accepting_connections(self):
         while True:
             client_socket, client_address = self.server_socket.accept()
-            client_handler = threading.Thread(target=self.handle_client, args=(client_socket, client_address), daemon=True, name=f"Client-Handler_{client_address[0]}")
+            client_handler = threading.Thread(target=self.handle_client, args=(client_socket, client_address), daemon=True, name=f"Client-Handler_{client_address[0]}:{client_address[1]}")
             client_handler.start()
             
             
@@ -254,19 +254,38 @@ class client:
 print("Server has Started!")
 sleep(0.5)
 accept_connections_thread.start()
+game_has_started = False
 os.system(defaults.CLS)
+
+def prepare_game():
+    global game_has_started
+    os.system(defaults.CLS)
+    print(f"All {len(player_list)} players are ready. Starting the game in 5 seconds...")
+    
+    server.broadcast_packet(ntw.encoding.encode_game_about_to_start_packet())
+    sleep(defaults.game_starting_delay)
+    print("Game has started.")
+    server.broadcast_packet(ntw.encoding.encode_game_started_packet())
+    game_has_started = True
+    sleep(2)
+    os.system(defaults.CLS)
+
+    game()
+    
+    
+def game():
+    pass
+    
 
 while True:
     if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
-        os.system(defaults.CLS)
-        print(f"All {len(player_list)} players are ready. Starting the game in 5 seconds...")
-        
-        server.broadcast_packet(ntw.encoding.encode_game_about_to_start_packet())
-        sleep(defaults.game_starting_delay)
-        print("Game has started.")
-        server.broadcast_packet(ntw.encoding.encode_game_started_packet())
-        sleep(1)
-        os.system(defaults.CLS)
+        sleep(2)
+        if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
+            prepare_game()
+            
+
+    
+    
     sleep(0.5)
     
     

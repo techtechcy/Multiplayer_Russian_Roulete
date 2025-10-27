@@ -1,5 +1,7 @@
+import os
 import queue
 import typing
+import inspect
 import logging
 import datetime
 import threading
@@ -28,6 +30,10 @@ class TextHandler(logging.Handler):
             self.text.yview(tk.END)
         # This is necessary because we can't modify the Text from other threads
         self.text.after(0, append)
+        
+        
+class cfg:
+    should_crash = True
 
 class myGUI(tk.Frame):
 
@@ -76,7 +82,9 @@ class myGUI(tk.Frame):
             logging.info(msg)
             
             
-##################################################### Logging Window ('borrowed' from stackoverflow) #####################################################
+#####################################################################################################################################################
+
+
 
 class ntw:
     default_port = 2046
@@ -107,6 +115,25 @@ class ntw:
     arg_list_sep = "|l|"
     
     
+    class InvalidPacket(Exception):
+        """Exception raised when a packet is invalid and unable to be decoded/encoded"""
+        def __init__(self, message, packet_type: str, location: str):
+            super().__init__(message)
+            self.packet_type = packet_type
+            self.location = location
+
+        def __str__(self):
+            return f"Invalid Packet exception at '{self.location}': (Packet Type: {self.packet_type}): {self.message}"
+        
+    @staticmethod
+    def get_current_line_for_errors():
+        frame = inspect.currentframe().f_back
+        file_name = os.path.basename(frame.f_code.co_filename)
+        func_name = frame.f_code.co_name
+        line_number = frame.f_lineno
+        return f"Line {line_number}, Function {func_name}, File {file_name}"
+    
+    
     class encoding:
         @staticmethod
         def encode_heartbeat_packet() -> bytes:
@@ -134,10 +161,6 @@ class ntw:
             return (ntw.start + ntw.sep + ntw.types["request_players"] + ntw.sep + ntw.end).encode()
         
         @staticmethod
-        def encode_game_started_packet() -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["game_started"] + ntw.sep + ntw.end).encode()
-        
-        @staticmethod
         def encode_pressed_trigger_packet() -> bytes:
             return (ntw.start + ntw.sep + ntw.types["pressed_trigger"] + ntw.sep + ntw.end).encode()
         
@@ -159,6 +182,10 @@ class ntw:
         @staticmethod
         def encode_game_about_to_start_packet() -> bytes:
             return (ntw.start + ntw.sep + ntw.types["game_about_to_start"] + ntw.sep + ntw.end).encode()
+        
+        @staticmethod
+        def encode_game_started_packet(number_of_chambers: int = 6) -> bytes:
+            return (ntw.start + ntw.sep + ntw.types["game_started"] + ntw.sep + str(number_of_chambers) + ntw.sep + ntw.end).encode()
         
         @staticmethod
         def encode_clear_terminal_packet() -> bytes:
@@ -225,10 +252,10 @@ class ntw:
                 return (packet_type, (ntw.decoding._decode_player_eliminated_packet(data)))# type: ignore
             
             elif packet_type == ntw.types["players"]:
-                return (packet_type, (ntw.decoding._decode_players_packet(data)))# type: ignore
+                return (packet_type, (ntw.decoding._decode_players_packet(data),)) # type: ignore
             
-            elif packet_type == ntw.types["user_disconnection"]:
-                return (packet_type, 1)  # type: ignore
+            elif packet_type == ntw.types["user_disconnection"]: 
+                return (packet_type, (1,)) 
             
             elif packet_type == ntw.types["message_to_print"]:
                 return (packet_type, (ntw.decoding._decode_message_to_print_packet(data)))# type: ignore
@@ -245,8 +272,35 @@ class ntw:
         
         @staticmethod
         def seperate_parts(packet: bytes): # type: ignore
-            parts =  packet.decode().split(ntw.sep)
+            parts = packet.decode().split(ntw.sep)
             return parts
+        
+        @staticmethod
+        def is_valid_packet(parts: list[str], normal_amount_of_parts: int):
+            amount_of_parts = len(parts)
+            try:
+                packet_type = parts[2]
+            except:
+                if cfg.should_crash:
+                    raise ntw.InvalidPacket("Failed to get type of packet (parts[2])", "reason_of_error", ntw.get_current_line_for_errors()) # Invalid Packet exception at {self.location}: (Packet Type: {self.packet_type}) {self.message}
+                else:
+                    return False
+            
+            if amount_of_parts < 3:
+                if cfg.should_crash:
+                    raise ntw.InvalidPacket("Packet check failed, reason is: 'amount_of_parts < 3'", packet_type, ntw.get_current_line_for_errors())
+                else:
+                    return False
+            
+            if amount_of_parts != normal_amount_of_parts:
+                if cfg.should_crash:
+                    raise ntw.InvalidPacket("Packet check failed, reason is: 'amount_of_parts != normal_amount_of_parts'", packet_type, ntw.get_current_line_for_errors())
+                else:
+                    return False
+            
+            return True
+                
+                
 
             
         
@@ -376,8 +430,9 @@ class ntw:
         def _decode_game_started_packet(data: bytes) -> bool | int:
             parts = ntw.decoding.seperate_parts(data)
             if len(parts) < 2:
-                print("Decoding Error: Malformed Game Started packet")
+                print("Decoding Error: Too little ")
                 return 0
+            
             candidate = parts[1]
             if candidate.endswith(ntw.end):
                 candidate = candidate[:-len(ntw.end)]
