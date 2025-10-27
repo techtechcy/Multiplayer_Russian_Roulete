@@ -169,7 +169,7 @@ def send_hb():
         q.put(ntw.encoding.encode_heartbeat_packet())
         time.sleep(3)
 
-def sendall():
+def handle_queue():
     global connected, csocket
     while connected:
         try:
@@ -275,28 +275,31 @@ def recv():
         elif packet_type == ntw.types["clear_terminal"]:
             clear_console()
 
-def validate_username(username: str) -> bool:
-    valid_user = "".join(char for char in username if char.isalnum() or char == "_")
-    counts = Counter(valid_user)
-
-    underscore_count = counts.get("_") or 0
-
-    # Rules: Allow one underscore, that cannot be located at the start or the end of the username, neither can it start with a number, and must be between 1 and 20 characters
-    return (
-        valid_user == username and len(valid_user) == len(username) and len(valid_user) >= 1 and len(valid_user) <= 20 and underscore_count <= 1
-        and underscore_count >= 0 and not username.startswith("_") and not username.endswith("_") and not username[0].isnumeric()
-    )
+def validate_username(username: str) -> tuple:
+    if len(username) > 20: # If the username is larger that 20 characters
+        return False, "Your username shouldn't be larger than 20 characters", 0.04
+    
+    if "," in username:
+        return False, "As you should have read above, no commas (,) are allowed in your username", 0.04
+    
+    if username.isnumeric():
+        return False, "Your username shouldn't only consist of numbers so other players can tell it's a real name and not just random numbers", 0.03
+    
+    if "*)" in username or "(*" in username or "|" in username or "[" in username or "]" in username:
+        return False, "For top secret reasons, your username cant contain the following: (*  *)  ,   |  [  ]", 0.04
+    
+    return True, "", 0.06
 
 username = ""
-valid_username = False
+is_valid = False
 
-while not valid_username:
-    printf("What will you be your username? (1 to 20 alphanumeric characters, 1 optional underscore that cannot be located on the start or end, first letter cannot be a number): ", newline=False, delay=0.02)
+while not is_valid:
+    printf("What username do you want? (20 characters max, cannot contain: , [ ] |   ): ", newline=False, delay=0.02)
     username = str(input()).replace(" ", "-") or " "
 
-    valid_username = validate_username(username)
-    if not valid_username:
-        printf("Username is invalid!")
+    is_valid, reason_of_invalidation, text_delay = validate_username(username)
+    if not is_valid:
+        printf(reason_of_invalidation, text_delay)
 
 connected = connection_server.connect_to_server(server_ip_input, server_port_input)
 
@@ -305,8 +308,11 @@ if not connected:
     game_is_running = False
     sys.exit(0)
 
-threading.Thread(target=sendall, daemon=True).start()
-threading.Thread(target=recv, daemon=True).start()
+handle_queue_thread = threading.Thread(target=handle_queue, daemon=True)
+handle_queue_thread.start()
+
+recv_thread = threading.Thread(target=recv, daemon=True)
+recv_thread.start()
 
 def show_pregame_menu():
     if not started and not about_to_start and connected:
@@ -336,10 +342,10 @@ if connected:
                 show_pregame_menu()
             elif key == b'4':
                 printf("Exiting...", finaldelay=1.5)
+                game_is_running = False
                 if connected:
                     csocket.send(ntw.encoding.encode_user_disconnection())
                 csocket.close()
-                game_is_running = False
                 sys.exit(0)
         time.sleep(0.01)
     

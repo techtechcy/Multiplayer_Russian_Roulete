@@ -110,6 +110,84 @@ class ntw:
         "player_selected": "ply_sel", # sends what player was selected
         "clear_terminal": "clr_term"
     }
+    packet_types = {
+        "heartbeat": {
+            "raw": "hbt",
+            "args": [],
+            "side": "client"
+        },
+        "heartbeat_response": {
+            "raw": "hbt_rsp",
+            "args": 1,
+            "side": "server"
+        },
+        "connection": {
+            "raw": "con",
+            "args": 1,
+            "side": "client"
+        },
+        "readiness": {
+            "raw": "rdy",
+            "args": [],
+            "side": "client"
+        },
+        "invalid_packet": {
+            "raw": "inv",
+            "args": [],
+            "side": "both"
+        },
+        "request_players": {
+            "raw": "rq_ply",
+            "args": [],
+            "side": "client"
+        },
+        "players": {
+            "raw": "plrs",
+            "args": [],
+            "side": "server"
+        },
+        "game_started": {
+            "raw": "gm_strt",
+            "args": [],
+            "side": "server"
+        },
+        "game_about_to_start": {
+            "raw": "gm_abtstr",
+            "args": [],
+            "side": "server"
+        },
+        "pressed_trigger": {
+            "raw": "prs_trg",
+            "args": [],
+            "side": "client"
+        },
+        "player_eliminated": {
+            "raw": "ply_elim",
+            "args": [],
+            "side": "server"
+        },
+        "user_disconnection": {
+            "raw": "usr_dsc",
+            "args": [],
+            "side": "client"
+        },
+        "message_to_print": {
+            "raw": "msg_prt",
+            "args": [],
+            "side": "server"
+        },
+        "player_selected": {
+            "raw": "ply_sel",
+            "args": [],
+            "side": "server"
+        },
+        "clear_terminal": {
+            "raw": "clr_term",
+            "args": [],
+            "side": "server"
+        },
+        
+    }
     
     max_packet_size = 1024
     arg_list_sep = "|l|"
