@@ -21,6 +21,7 @@ class defaults:
     max_clients = numbers_of_chambers - 1
     CLS = "cls"
     game_starting_delay = 5 # in seconds
+    delay_to_verify_ready_players = 2 # in seconds
 
 class Gun:
     def __init__(self):
@@ -279,7 +280,7 @@ def game():
 
 while True:
     if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
-        sleep(2)
+        sleep(delay_to_verify_ready_players)
         if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
             prepare_game()
             
