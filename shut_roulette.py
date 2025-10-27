@@ -132,7 +132,7 @@ class server:
             return False
 
 if not sys.platform.startswith("win"):
-    printf("This code runs on windows only lil nigga", finaldelay=2)
+    printf("This code runs on windows only for some reason", finaldelay=2)
     game_is_running = False
     sys.exit(0)
 
@@ -301,8 +301,8 @@ while not valid_username:
 connected = connection_server.connect_to_server(server_ip_input, server_port_input)
 
 if not connected:
-    csocket.close()
     game_is_running = False
+    csocket.close()
     sys.exit(0)
 
 threading.Thread(target=sendall, daemon=True).start()
