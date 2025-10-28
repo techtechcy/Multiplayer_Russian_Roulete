@@ -288,7 +288,6 @@ class client:
 
     
 ############################################################### Actual Game ###############################################################
-print("Server has Started!")
 sleep(0.5)
 accept_connections_thread.start()
 game_has_started = False
@@ -316,8 +315,10 @@ def game():
     """ # <- w comment ngl
     while True: # (gonna review it soon with daddy techtech)
         sleep(0.5)
-    
 
+
+
+print("Server has Started!")
 while True:
     if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
         sleep(defaults.delay_to_verify_ready_players)
