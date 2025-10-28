@@ -4,7 +4,6 @@ import typing
 import inspect
 import logging
 import datetime
-import threading
 
 ##################################################### Logging Window ('borrowed' from stackoverflow) #####################################################
 import tkinter as tk
@@ -91,108 +90,155 @@ class ntw:
     default_host = "localhost"
     
     start = "(*"
-    sep = ","
+    sep = "|||"
     end = "*)"
-    types = {
-        "heartbeat": "hbt",
-        "heartbeat_response": "hbt_rsp", # acts as ACK and sends player count
-        "connection": "con",
-        "readiness": "rdy",
-        "invalid_packet": "inv",
-        "request_players": "rq_ply",
-        "players": "plrs",
-        
-        "game_started": "gm_strt",
-        "game_about_to_start": "gm_abtstr",
-        "pressed_trigger": "prs_trg",
-        "player_eliminated": "ply_elim",
-        "user_disconnection": "usr_dsc",
-        "message_to_print": "msg_prt",
-        "player_selected": "ply_sel", # sends what player was selected
-        "clear_terminal": "clr_term"
-    }
-    packet_types = {
-        "heartbeat": {
-            "raw": "hbt",
-            "args": [],
-            "side": "client"
-        },
-        "heartbeat_response": {
-            "raw": "hbt_rsp",
-            "args": 1,
-            "side": "server"
-        },
-        "connection": {
-            "raw": "con",
-            "args": 1,
-            "side": "client"
-        },
-        "readiness": {
-            "raw": "rdy",
-            "args": [],
-            "side": "client"
-        },
-        "invalid_packet": {
-            "raw": "inv",
-            "args": [],
-            "side": "both"
-        },
-        "request_players": {
-            "raw": "rq_ply",
-            "args": [],
-            "side": "client"
-        },
-        "players": {
-            "raw": "plrs",
-            "args": [],
-            "side": "server"
-        },
-        "game_started": {
-            "raw": "gm_strt",
-            "args": [],
-            "side": "server"
-        },
-        "game_about_to_start": {
-            "raw": "gm_abtstr",
-            "args": [],
-            "side": "server"
-        },
-        "pressed_trigger": {
-            "raw": "prs_trg",
-            "args": [],
-            "side": "client"
-        },
-        "player_eliminated": {
-            "raw": "ply_elim",
-            "args": [],
-            "side": "server"
-        },
-        "user_disconnection": {
-            "raw": "usr_dsc",
-            "args": [],
-            "side": "client"
-        },
-        "message_to_print": {
-            "raw": "msg_prt",
-            "args": [],
-            "side": "server"
-        },
-        "player_selected": {
-            "raw": "ply_sel",
-            "args": [],
-            "side": "server"
-        },
-        "clear_terminal": {
-            "raw": "clr_term",
-            "args": [],
-            "side": "server"
-        },
-        
-    }
-    
-    max_packet_size = 1024
+    max_packet_size = 512
     arg_list_sep = "|l|"
     
+    @staticmethod
+    def validate_username(username: str) -> tuple:
+        if len(username) > 20: # If the username is larger that 20 characters
+            return False, "Your username shouldn't be larger than 20 characters", 0.04
+        
+        if "," in username:
+            return False, "As you should have read above, no commas (,) are allowed in your username", 0.04
+        
+        if username.isnumeric():
+            return False, "Your username shouldn't only consist of numbers so other players can tell it's a real name and not just random numbers", 0.03
+        
+        if "*)" in username or "(*" in username or "|" in username or "[" in username or "]" in username:
+            return False, "For top secret reasons, your username cant contain the following: (*  *)  ,   |  [  ]", 0.04
+        
+        return True, "", 0.06
+    
+    class packets:
+        class general_packet:
+            RAW: str
+            ARG_NUMBER: int
+            SIDE: typing.Literal["client", "server", "both"]
+            
+        class heartbeat(general_packet):
+            RAW = "hbt"
+            ARG_NUMBER = 0
+            SIDE = "client"
+            @classmethod
+            def encode(cls):
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + ntw.end).encode()
+        class heartbeat_response(general_packet):
+            RAW = "hbt_rsp"
+            ARG_NUMBER = 1
+            SIDE = "server"
+            @classmethod
+            def encode(cls, player_count):
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + str(player_count) + ntw.sep + ntw.end).encode()      
+        class connection(general_packet):
+            RAW = "con"
+            ARG_NUMBER = 1
+            SIDE = "client"
+            @classmethod
+            def encode(cls, username: str) -> bytes:
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + str(username) + ntw.sep + ntw.end).encode()
+        class readiness(general_packet):
+            RAW = "rdy"
+            ARG_NUMBER = 1
+            SIDE = "client"
+            @classmethod
+            def encode(cls, ready: bool) -> bytes:
+                ready_state = "1" if ready else "0"
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + ready_state + ntw.sep + ntw.end).encode()
+        class invalid_packet(general_packet):
+            RAW = "error_pckt"
+            ARG_NUMBER = 0
+            SIDE = "both"
+            @classmethod
+            def encode(cls):
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + ntw.end).encode()
+        class request_players(general_packet):
+            RAW = "rq_plys"
+            ARG_NUMBER = 0
+            SIDE = "client"
+            @classmethod
+            def encode(cls):
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + ntw.end).encode()
+        class players(general_packet):
+            RAW = "plrs"
+            ARG_NUMBER = 1
+            SIDE = "server"
+            @classmethod
+            def encode(cls, usernames: list[str]) -> bytes:
+                encoded_player_list = ntw.arg_list_sep.join(user for user in usernames)
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + str(encoded_player_list) + ntw.sep + ntw.end).encode()
+        class game_started(general_packet):
+            RAW = "g_start"
+            ARG_NUMBER = 0
+            SIDE = "server"
+            @classmethod
+            def encode(cls):
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + ntw.end).encode()
+        class game_about_to_start(general_packet):
+            RAW = "abt_start"
+            ARG_NUMBER = 0
+            SIDE = "server"
+            @classmethod
+            def encode(cls):
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + ntw.end).encode()
+        class pressed_trigger(general_packet):
+            RAW = "trig"
+            ARG_NUMBER = 0
+            SIDE = "client"
+            @classmethod
+            def encode(cls):
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + ntw.end).encode()
+        class player_eliminated(general_packet):
+            RAW = "ply_elim"
+            ARG_NUMBER = 1
+            SIDE = "server"
+            @classmethod
+            def encode(cls, username: str) -> bytes:
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + str(username) + ntw.sep + ntw.end).encode()
+        class user_disconnection(general_packet):
+            RAW = "ply_dis"
+            ARG_NUMBER = 0
+            SIDE = "client"
+            @classmethod
+            def encode(cls):
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + ntw.end).encode()
+        class message_to_print(general_packet):
+            RAW = "msg"
+            ARG_NUMBER = 1
+            SIDE = "server"
+            @classmethod
+            def encode(cls, message: str) -> bytes:
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + str(message) + ntw.sep + ntw.end).encode()
+        class player_selected(general_packet):
+            RAW = "ply_sel"
+            ARG_NUMBER = 1
+            SIDE = "server"
+            @classmethod
+            def encode(cls, player_selected: str) -> bytes:
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + str(player_selected) + ntw.sep + ntw.end).encode()
+        class clear_terminal(general_packet):
+            RAW = "cls_term"
+            ARG_NUMBER = 0
+            SIDE = "server"
+            @classmethod
+            def encode(cls):
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + ntw.end).encode()
+        class invalid_username(general_packet):
+            RAW = "inv_usrname"
+            ARG_NUMBER = 1
+            SIDE = "server"
+            @classmethod
+            def encode(cls, msg: str, delay: float = 0.06):
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + str(msg) + ntw.sep + str(delay) + ntw.sep + ntw.end).encode()
+    
+    @classmethod
+    def get_packet_by_raw(cls, raw: str):
+        for name, cls in ntw.packets.__dict__.items():
+            if isinstance(cls, type) and hasattr(cls, "RAW") and cls.RAW == raw:
+                return cls
+        return None
+
     
     class InvalidPacket(Exception):
         """Exception raised when a packet is invalid and unable to be decoded/encoded"""
@@ -202,151 +248,60 @@ class ntw:
             self.location = location
 
         def __str__(self):
-            return f"Invalid Packet exception at '{self.location}': (Packet Type: {self.packet_type}): {self.message}"
+            return f"Invalid Packet exception at '{self.location}': (Packet Type: {self.packet_type}): {self.message}"  # type: ignore
         
     @staticmethod
-    def get_current_line_for_errors():
-        frame = inspect.currentframe().f_back
-        file_name = os.path.basename(frame.f_code.co_filename)
-        func_name = frame.f_code.co_name
-        line_number = frame.f_lineno
-        return f"Line {line_number}, Function {func_name}, File {file_name}"
-    
-    
-    class encoding:
-        @staticmethod
-        def encode_heartbeat_packet() -> bytes:
-            return (ntw.start + ntw.sep + ntw.packet_types["heartbeat"]["raw"] + ntw.sep + ntw.end).encode()
-        
-        @staticmethod
-        def encode_heartbeat_response_packet(player_count: int) -> bytes:
-            return (ntw.start + ntw.sep + ntw.packet_types["heartbeat_response"]["raw"] + ntw.sep + str(player_count) + ntw.sep + ntw.end).encode()
-        
-        @staticmethod
-        def encode_connection_packet(username: str) -> bytes:
-            return (ntw.start + ntw.sep + ntw.packet_types["connection"]["raw"] + ntw.sep + username + ntw.sep + ntw.end).encode()
-        
-        @staticmethod
-        def encode_readiness_packet(is_ready: bool) -> bytes:
-            readiness_str = "1" if is_ready else "0"
-            return (ntw.start + ntw.sep + ntw.packet_types["readiness"]["raw"] + ntw.sep + readiness_str + ntw.sep + ntw.end).encode()
-        
-        @staticmethod
-        def encode_invalid_packet() -> bytes:
-            return (ntw.start + ntw.sep + ntw.packet_types["invalid_packet"]["raw"] + ntw.end).encode()
-        
-        @staticmethod
-        def encode_request_players_packet() -> bytes:
-            return (ntw.start + ntw.sep + ntw.packet_types["request_players"]["raw"] + ntw.sep + ntw.end).encode()
-        
-        @staticmethod
-        def encode_pressed_trigger_packet() -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["pressed_trigger"] + ntw.sep + ntw.end).encode()
-        
-        @staticmethod
-        def encode_player_eliminated_packet(username: str) -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["player_eliminated"] + ntw.sep + username + ntw.sep + ntw.end).encode()
-        
-        @staticmethod
-        def encode_players_packet(usernames: list[str]) -> bytes:
-            encoded_player_list = ntw.arg_list_sep.join(user for user in usernames)
-            packet_data = (ntw.start + ntw.sep + ntw.packet_types["players"]["raw"] + ntw.sep + encoded_player_list + ntw.sep + ntw.end).encode()
-            print(f"Sending Player Packet: {packet_data}")
-            return packet_data
-        
-        @staticmethod
-        def encode_user_disconnection() -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["user_disconnection"] + ntw.sep + ntw.end).encode()
-        
-        @staticmethod
-        def encode_game_about_to_start_packet() -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["game_about_to_start"] + ntw.sep + ntw.end).encode()
-        
-        @staticmethod
-        def encode_game_started_packet(number_of_chambers: int = 6) -> bytes:
-            return (ntw.start + ntw.sep + ntw.packet_types["game_started"]["raw"] + ntw.sep + str(number_of_chambers) + ntw.sep + ntw.end).encode()
-        
-        @staticmethod
-        def encode_clear_terminal_packet() -> bytes:
-            return (ntw.start + ntw.sep + ntw.types["clear_terminal"] + ntw.sep + ntw.end).encode()
-
+    def get_current_line_for_errors() -> str:
+        frame = inspect.currentframe().f_back # type: ignore
+        file_name = os.path.basename(frame.f_code.co_filename) # type: ignore
+        func_name = frame.f_code.co_name # type: ignore
+        line_number = frame.f_lineno # type: ignore
+        return f"Line {line_number}, Function {func_name}, File {file_name}" 
         
             
         
     
     class decoding:
         @staticmethod
-        def decode_packet(data: bytes | str) -> tuple[str, tuple[typing.Any]]:  # type: ignore
+        def decode_packet(data: bytes | str) -> tuple: # type: ignore
+            """
+            If packet is valid, returns: (packet_type: str, packet_class: ntw.general_packet, parts: list)
+            
+            If packet is invalid (and config is set to crash, default): raises ntw.InvalidPacket
+            If packet is invalid (and config is set to not crash), returns (ntw.packets.invalid_packet.RAW, packet_class: object, error_msg: str)
+            """
             if type(data) == str: data = data.encode()
             
-            parts = data.decode().split(ntw.sep)  # type: ignore
-            
-            ## start,sep,part,sep,end
-            
+            parts = ntw.decoding.seperate_parts(data) # type: ignore
+
             ############# Malformed Packet Checks #############
-            if len(parts) < 3 or parts[0] != ntw.start:
-                return (ntw.packet_types["invalid_packet"]["raw"], (None))  # type: ignore
+
+            # is_valid = ntw.decoding.is_valid_packet(parts)
+            raw_packet_type = parts[1]
+            packet_class = ntw.get_packet_by_raw(raw_packet_type) # returns the class of the packet
             
-            if parts[len(parts) - 1] != ntw.end:
-                return (ntw.packet_types["invalid_packet"]["raw"], (None))  # type: ignore
+            normal_amount_of_parts = 3 + packet_class.ARG_NUMBER #type: ignore
+            if not ntw.decoding.is_valid_packet(parts, normal_amount_of_parts):
+                if cfg.should_crash:
+                    raise ntw.InvalidPacket(f"Decoding Error: is_valid_packet returned false", raw_packet_type, ntw.get_current_line_for_errors())
+                else:
+                    return (ntw.packets.invalid_packet.RAW, packet_class,f"Decoding Error: is_valid_packet returned false at {ntw.get_current_line_for_errors()}")
+
+            if packet_class == None:
+                if cfg.should_crash:
+                    raise ntw.InvalidPacket("Decoding Error: possible_packet_type is None", raw_packet_type, ntw.get_current_line_for_errors())
+                else:
+                    return (ntw.packets.invalid_packet.RAW, packet_class, f"Decoding Error: possible_packet_type is None at {ntw.get_current_line_for_errors()}")
             
+            if packet_class.ARG_NUMBER == 0:
+                return (raw_packet_type, packet_class, None)
             
-            ###################################################
-            
-            
-            if len(parts) < 2:
-                return (ntw.packet_types["invalid_packet"]["raw"], (None)) # type: ignore
-            
-            packet_type_raw = parts[1]
-            if packet_type_raw.endswith(ntw.end):
-                packet_type = packet_type_raw[:-len(ntw.end)]
-            else:
-                packet_type = packet_type_raw
-            
-            if packet_type == ntw.packet_types["heartbeat_response"]["raw"]:
-                return (packet_type, (ntw.decoding._decode_heartbeat_response_packet(data))) # type: ignore
-            
-            if packet_type == ntw.packet_types["heartbeat"]["raw"]:
-                return (packet_type, (ntw.decoding._decode_heartbeat_packet(data))) # type: ignore
-    
-            elif packet_type == ntw.packet_types["connection"]["raw"]:
-                return (packet_type, (ntw.decoding._decode_connection_packet(data)))# type: ignore
-            
-            elif packet_type == ntw.packet_types["readiness"]["raw"]:
-                return (packet_type, (ntw.decoding._decode_readiness_packet(data)))# type: ignore
-            
-            elif packet_type == ntw.packet_types["invalid_packet"]["raw"]:
-                return (packet_type, (ntw.decoding._decode_invalid_packet(data)))# type: ignore
-            
-            elif packet_type == ntw.packet_types["request_players"]["raw"]:
-                return (packet_type, (ntw.decoding._decode_request_players_packet(data)))# type: ignore
-            
-            elif packet_type == ntw.packet_types["game_started"]["raw"]:
-                return (packet_type, (ntw.decoding._decode_game_started_packet(data)))# type: ignore
-            
-            elif packet_type == ntw.types["pressed_trigger"]:
-                return (packet_type, (ntw.decoding._decode_pressed_trigger_packet(data)))# type: ignore
-            
-            elif packet_type == ntw.types["player_eliminated"]:
-                return (packet_type, (ntw.decoding._decode_player_eliminated_packet(data)))# type: ignore
-            
-            elif packet_type == ntw.packet_types["players"]["raw"]:
-                return (packet_type, (ntw.decoding._decode_players_packet(data),)) # type: ignore
-            
-            elif packet_type == ntw.types["user_disconnection"]: 
-                return (packet_type, (1,)) 
-            
-            elif packet_type == ntw.types["message_to_print"]:
-                return (packet_type, (ntw.decoding._decode_message_to_print_packet(data)))# type: ignore
-            
-            elif packet_type == ntw.types["player_selected"]:
-                return (packet_type, (ntw.decoding._decode_player_selected_packet(data)))# type: ignore
-            
-            elif packet_type == ntw.types["game_about_to_start"]:
-                return (packet_type, ntw.decoding._decode_game_about_to_start_packet(data)) # type: ignore
-            
-            elif packet_type == ntw.types["clear_terminal"]:
-                return (packet_type, ntw.decoding._decode_clear_terminal_packet(data)) # type: ignore
+            if packet_class.ARG_NUMBER > 0:
+                args = parts
+                args.remove(ntw.start) 
+                args.remove(raw_packet_type)
+                args.remove(ntw.end)
+                return (raw_packet_type, packet_class, parts)
             
         
         @staticmethod
@@ -378,183 +333,3 @@ class ntw:
                     return False
             
             return True
-                
-                
-
-            
-        
-        
-        
-        
-        @staticmethod
-        def _decode_clear_terminal_packet(data: bytes):
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 3 or parts[1] != ntw.types["clear_terminal"]:
-                print("Decoding Error: Malformed clear terminal packet")
-                return False
-            return True
-            
-        @staticmethod
-        def _decode_message_to_print_packet(data: bytes) -> bool | str: # type: ignore
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 4 or parts[1] != ntw.types["message_to_print"]:
-                print("Decoding Error: Malformed msg to print packet")
-                return False
-            return parts[2]
-            
-            
-        
-        @staticmethod
-        def _decode_player_selected_packet(data: bytes) -> str | bool:# type: ignore
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 4 or parts[1] != ntw.types["player_selected"]:
-                print("Decoding Error: Malformed player selected packet")
-                return False
-            return parts[2]
-        
-        @staticmethod
-        def _decode_heartbeat_packet(data: bytes) -> bool:
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 3 or parts[1] != ntw.packet_types["heartbeat"]["raw"]:
-                print("Decoding Error: Malformed heartbeat packet")
-                return False
-            return True
-        
-        @staticmethod
-        def _decode_heartbeat_response_packet(data: bytes):
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 4 or parts[1] != ntw.packet_types["heartbeat_response"]["raw"]:
-                print("Decoding Error: Malformed hjeartbeat response packet")
-                return 0
-            
-            try:
-                player_count = int(parts[2])
-            except:
-                return -1
-            
-            return player_count
-        
-        @staticmethod
-        def _decode_connection_packet(data: bytes) -> str | int:
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 4 or parts[1] != ntw.packet_types["connection"]["raw"]:
-                print("Decoding Error: Malformed connection packet")
-                return 0
-            
-            return parts[2]
-        
-    
-        @staticmethod
-        def _decode_readiness_packet(data: bytes) -> bool | int:
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 4 or parts[1] != ntw.packet_types["readiness"]["raw"]:
-                print("Invalid Packet for Readiness")
-                return 0
-
-            if parts[2] == "1":
-                return True
-            elif parts[2] == "0":
-                return False
-            else:
-                return None # type: ignore
-            
-        @staticmethod
-        def _decode_invalid_packet(data: bytes) -> bool | int:
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) < 2:
-                return 0
-            candidate = parts[1]
-            if candidate.endswith(ntw.end):
-                candidate = candidate[:-len(ntw.end)]
-            elif len(parts) >= 3 and parts[2] == ntw.end:
-                pass
-            else:
-                pass
-            if candidate != ntw.packet_types["invalid_packet"]["raw"]:
-                return 0
-            return True
-        
-        @staticmethod
-        def _decode_request_players_packet(data: bytes) -> bool | int:
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 3:
-                print("Unexpected Amount of Parts")
-                return 0
-            candidate = parts[1]
-            if candidate != ntw.packet_types["request_players"]["raw"]:
-                print("Malformed request players packet 1")
-                return 0
-            if not parts[2].endswith(ntw.end):
-                print("Malformed request players packet 2")
-                return 0
-            return True
-        
-        @staticmethod
-        def _decode_players_packet(data: bytes) -> list[str] | int:
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) < 3 or parts[1] != ntw.packet_types["players"]["raw"]:
-                print("Decoding Error: Malformed players packet")
-                return 0
-        
-            # encoded_player_list = ntw.arg_list_sep.join(user for user in usernames)
-            # packet_data = (ntw.start + ntw.sep + ntw.packet_types["players"]["raw"] + ntw.sep + encoded_player_list + ntw.sep + ntw.end).encode()
-            # print(f"Sending Player Packet: {packet_data}")
-            # return packet_data
-            
-            # raw_player_list = parts[]
-            players = parts[2].split(ntw.arg_list_sep)
-            return players
-        
-        @staticmethod
-        def _decode_game_started_packet(data: bytes) -> bool | int:
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) < 2:
-                print("Decoding Error: Too little ")
-                return 0
-            
-            candidate = parts[1]
-            if candidate.endswith(ntw.end):
-                candidate = candidate[:-len(ntw.end)]
-            elif len(parts) >= 3 and parts[2] == ntw.end:
-                pass
-            else:
-                pass
-            if candidate != ntw.packet_types["game_started"]["raw"]:
-                return 0
-            return True
-        
-        @staticmethod
-        def _decode_pressed_trigger_packet(data: bytes) -> bool | int:
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) < 2:
-                print("Decoding Error: Malformed Pressed Trigger packet")
-                return 0
-            candidate = parts[1]
-            if candidate.endswith(ntw.end):
-                candidate = candidate[:-len(ntw.end)]
-            elif len(parts) >= 3 and parts[2] == ntw.end:
-                pass
-            else:
-                pass
-            if candidate != ntw.types["pressed_trigger"]:
-                return 0
-            return True
-        
-        @staticmethod
-        def _decode_player_eliminated_packet(data: bytes) -> str | int:
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 3 or parts[1] != ntw.types["player_eliminated"]:
-                print("Decoding Error: Malformed Player Eliminated packet")
-                return 0
-            
-            return parts[2]
-
-        @staticmethod
-        def _decode_game_about_to_start_packet(data: bytes) -> bool:
-            parts = ntw.decoding.seperate_parts(data)
-            if len(parts) != 3 or parts[1] != ntw.types["game_about_to_start"]:
-                print("Decoding Error: Malformed Game About To Start packet")
-                return False
-            return True
-    
-        

@@ -8,7 +8,7 @@ import threading
 from shared import ntw
 import time
 import threading
-from shared import TextHandler,myGUI
+from shared import myGUI
 import tkinter as tk
 from collections import Counter
 
@@ -166,7 +166,7 @@ ready = False
 def send_hb():
     global connected, csocket
     while connected:
-        q.put(ntw.encoding.encode_heartbeat_packet())
+        q.put(ntw.packets.heartbeat.encode())
         time.sleep(3)
 
 def handle_queue():
@@ -189,7 +189,7 @@ def handle_queue():
 
     try:
         if connected:
-            csocket.send(ntw.encoding.encode_user_disconnection())
+            csocket.send(ntw.packets.user_disconnection.encode())
         csocket.close()
     except Exception:
         pass
@@ -213,7 +213,7 @@ def recv():
                 connected = False
                 printf("Server has closed the connection")
                 if connected:
-                    csocket.send(ntw.encoding.encode_user_disconnection())
+                    csocket.send(ntw.packets.user_disconnection.encode())
                 csocket.close()
                 return
 
@@ -223,33 +223,37 @@ def recv():
                 break
         
         log("INCOMING: " + buffer)
-        packet_type, args = ntw.decoding.decode_packet(buffer)
+        packet_type, packet_class, args = ntw.decoding.decode_packet(buffer)
+        packet_type: str
+        packet_class: ntw.packets.general_packet
+        args: list[str]
         
-        if packet_type == ntw.packet_types["heartbeat_response"]["raw"]:
+        
+        if packet_type == ntw.packets.heartbeat_response.RAW:
             old_player_count = player_count
-            player_count = args
+            player_count = int(args[0])
 
             if old_player_count != player_count:
-                q.put(ntw.encoding.encode_request_players_packet())
+                q.put(ntw.packets.request_players.encode())
             
-        elif packet_type == ntw.types["game_about_to_start"]:
+        elif packet_type == ntw.packets.game_about_to_start.RAW:
             about_to_start = True
 
             clear_console()
             printf("Game is about to start...", delay=0.03)
 
-        elif packet_type ==  ntw.packet_types["game_started"]["raw"]:
+        elif packet_type == ntw.packets.game_started.RAW:
             started = True
         
-        elif packet_type == ntw.packet_types["players"]["raw"]:
+        elif packet_type == ntw.packets.players.RAW:
             players = args
         
-        elif packet_type == ntw.types["message_to_print"]:
-            output = str(args)
+        elif packet_type == ntw.packets.message_to_print.RAW:
+            output = str(args[0])
             printf(output, delay=0.03)
         
-        elif packet_type == ntw.types["player_selected"]:
-            user_selected = str(args)
+        elif packet_type == ntw.packets.player_selected.RAW:
+            user_selected = str(args[0])
 
             printf("The silence fills the room...", delay=0.03, finaldelay=0.8)
             
@@ -267,28 +271,15 @@ def recv():
                 printf("For a heartbeat, the world stops...", delay=0.03, finaldelay=0.2)
                 printf("Is it over... or has fate spared you this time?", delay=0.03, finaldelay=0.2)
 
-                q.put(ntw.encoding.encode_pressed_trigger_packet()) # you are probably cooked lil bro 💀
+                q.put(ntw.packets.pressed_trigger.encode()) # you are probably cooked
             
             else: # ANOTHER PERSON HAS BEEN SELECTED
                 printf(f"The room has gone silent while staring at {user_selected} as the gun was being handed to them...", delay=0.03)
         
-        elif packet_type == ntw.types["clear_terminal"]:
+        elif packet_type == ntw.packets.clear_terminal.RAW:
             clear_console()
 
-def validate_username(username: str) -> tuple:
-    if len(username) > 20: # If the username is larger that 20 characters
-        return False, "Your username shouldn't be larger than 20 characters", 0.04
-    
-    if "," in username:
-        return False, "As you should have read above, no commas (,) are allowed in your username", 0.04
-    
-    if username.isnumeric():
-        return False, "Your username shouldn't only consist of numbers so other players can tell it's a real name and not just random numbers", 0.03
-    
-    if "*)" in username or "(*" in username or "|" in username or "[" in username or "]" in username:
-        return False, "For top secret reasons, your username cant contain the following: (*  *)  ,   |  [  ]", 0.04
-    
-    return True, "", 0.06
+
 
 username = ""
 is_valid = False
@@ -297,7 +288,7 @@ while not is_valid:
     printf("What username do you want? (20 characters max, cannot contain: , [ ] |   ): ", newline=False, delay=0.02)
     username = str(input()).replace(" ", "-") or " "
 
-    is_valid, reason_of_invalidation, text_delay = validate_username(username)
+    is_valid, reason_of_invalidation, text_delay = ntw.validate_username(username)
     if not is_valid:
         printf(reason_of_invalidation, text_delay)
 
@@ -322,7 +313,7 @@ def show_pregame_menu():
 time.sleep(2)
 if connected:
     clear_console()
-    q.put(ntw.encoding.encode_connection_packet(username))
+    q.put(ntw.packets.connection.encode(username))
     threading.Thread(target=send_hb, daemon=True).start()
 
     printf("Write an action (number):\n1) Ready/Unready\n2) List Players In Lobby\n3) List Player Count\n4) Leave & Quit Game", delay=0.02)
@@ -331,7 +322,7 @@ if connected:
             key = msvcrt.getch()
             if key == b'1':
                 ready = not ready
-                q.put(ntw.encoding.encode_readiness_packet(ready))
+                q.put(ntw.packets.readiness.encode(ready))
                 printf("You are " + ("ready" if ready else "no longer ready"), finaldelay=2)
                 show_pregame_menu()
             elif key == b'2':
@@ -344,7 +335,7 @@ if connected:
                 printf("Exiting...", finaldelay=1.5)
                 game_is_running = False
                 if connected:
-                    csocket.send(ntw.encoding.encode_user_disconnection())
+                    csocket.send(ntw.packets.user_disconnection.encode())
                 csocket.close()
                 sys.exit(0)
         time.sleep(0.01)

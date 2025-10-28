@@ -4,11 +4,10 @@ import random
 import queue
 import threading
 import tkinter as tk
-import logging
-from tkinter import *
+from tkinter import * # type: ignore [wildcard import pylance 🔥]
 from shared import ntw
 from time import sleep
-from tkinter.ttk import *
+from tkinter.ttk import * # type: ignore [w pylance]
 
 
 
@@ -66,7 +65,10 @@ class _server:
     def handle_client(self, client_socket: socket.socket, client_address: tuple):
         print(f"New connection from {client_address[0]}:{client_address[1]}")
         
-        while True:
+        packet_queue = []
+        should_accept_packets = True
+
+        while should_accept_packets:
             full_packet = ""
             
             try:
@@ -83,42 +85,73 @@ class _server:
                         break
                 
                 # FULL PACKET
+                num_of_packets = full_packet.count(ntw.end) # how many packets does the full packet contain?
 
-                packet_type, packet_args = ntw.decoding.decode_packet(full_packet)
+                if num_of_packets > 1: # multiple packets
+                    cprint("MULTIPLE PACKETS HAVE BEEN RECEIVED")
+                    cprint(f"Full Packet: {full_packet}")
+                    packet = full_packet
+                else: # one packet
+                    packet = full_packet
+                    pass
+
+
+                ############# handle packets #############
+                packet_type, packet_class, args = ntw.decoding.decode_packet(packet)
+                packet_type: str
+                packet_class: ntw.packets.general_packet
+                has_extra_args = False
+            
+                if type(args) == list:
+                    has_extra_args = True
+                    
                 
-                if packet_type == ntw.types["heartbeat"]:
-                    cprint(f"Received Heartbeat, responding with {ntw.encoding.encode_heartbeat_response_packet(len(player_list))}")
-                    client_socket.send(ntw.encoding.encode_heartbeat_response_packet(len(player_list)))
+                if packet_type == ntw.packets.heartbeat.RAW:
+                    respond_PACKET = ntw.packets.heartbeat_response.encode(len(player_list))
+                    cprint(f"Received Heartbeat, responding with {respond_PACKET}")
+                    client_socket.send(respond_PACKET)
                 
-                elif packet_type == ntw.packet_types["connection"]["raw"]:
-                    username = str(packet_args)
-                    player_list.append(client(csocket=client_socket, client_ip=client_address[0], client_port=client_address[1], username=username)) # type: ignore
-                    cprint(f"User '{username}' connected from {client_address[0]}:{client_address[1]}")
-                    cprint(f"Player List: {player_list}")
+                elif packet_type == ntw.packets.connection.RAW:
+                    username = str(args[0])
+                    is_valid, error_message, delay = ntw.validate_username(username)
+                    if not is_valid:
+                        client_socket.send(ntw.packets.invalid_username.encode(error_message, delay))
+                    else:
+                        player_list.append(client(csocket=client_socket, client_ip=client_address[0], client_port=client_address[1], username=username))
+                        cprint(f"User '{username}' connected from {client_address[0]}:{client_address[1]}")
+                        
+                    
                 
-                elif packet_type == ntw.packet_types["readiness"]["raw"]:
-                    is_ready = packet_args
+                elif packet_type == ntw.packets.readiness.RAW:
+                    is_ready = args
                     if is_ready:
                         server.ready_users.append(client_socket)
-                        cprint(f"User from {client_address[0]}:{client_address[1]} is ready")
+                        cprint(f"User from {client.get_user_from_ip(client_address[0])} is ready")
                     else:
                         server.ready_users.remove(client_socket)
-                        cprint(f"User from {client_address[0]}:{client_address[1]} is no longer ready")
+                        cprint(f"User from {client.get_user_from_ip(client_address[0])} is no longer ready")
                 
-                elif packet_type == ntw.packet_types["invalid_packet"]["raw"]:
-                    cprint(f"Received invalid packet from client: {packet_args}, {full_packet}")
+                elif packet_type == ntw.packets.invalid_packet.RAW:
+                    cprint(f"Received invalid packet from client: {args}, {full_packet}")
+                    cprint(f"Error: {str(args)}")
                     
-                elif packet_type == ntw.packet_types["request_players"]["raw"]:
+                elif packet_type == ntw.packets.request_players.RAW:
                     username_list = []
                     for user in player_list:
                         username_list.append(user.username)
                     cprint(f"Sending Players: {username_list}")
+                    client_socket.send(ntw.packets.players.encode(username_list))
                     
-                    
-                    client_socket.send(ntw.encoding.encode_players_packet(username_list))
-                    
-                elif packet_type == ntw.types["user_disconnection"]:
+                elif packet_type == ntw.packets.user_disconnection.RAW:
                     cprint(f"{client.get_user_from_ip(client_address[0])}: Disconnected Gracefully")
+                    try:
+                        player_list.remove(client.get_user_from_ip(client_address[0]))
+                        client_socket.close()
+                        should_accept_packets = False
+                        break
+                    except:
+                        cprint("Cant disconnect player: Player never sent a connection packet")
+                        
                     
                     
 
@@ -126,8 +159,11 @@ class _server:
                 
             except Exception as e:
                 cprint(f"Error handling client {client_address[0]}:{client_address[1]}:\n{e}")
-                cprint(f"Player List: {player_list}")
-                player_list.remove(client.get_user_from_ip(client_address[0]))  # type: ignore
+                print(f"There are {len(player_list)} players connected")
+                try:
+                    player_list.remove(client.get_user_from_ip(client_address[0]))
+                except:
+                    cprint("Cant disconnect player: Player never sent a connection packet")
                 return
 
 gun = Gun()
@@ -160,11 +196,11 @@ class GUI(tk.Frame):
         
         def broadcast_game_started_packet():
             print("Broadcasting Game Started Packet...")
-            server.broadcast_packet(ntw.encoding.encode_game_started_packet())
+            server.broadcast_packet(ntw.packets.game_started.encode())
             
         def broadcast_clear_terminal_packet():
             print("Broadcasting Game Started Packet...")
-            server.broadcast_packet(ntw.encoding.encode_clear_terminal_packet())
+            server.broadcast_packet(ntw.packets.clear_terminal.encode())
             
 
         
@@ -192,7 +228,7 @@ threading.Thread(target=main, daemon=True).start()
     
     
 def cprint(text: str):
-    print(f"[CLIENT_THREAD]: {text}")
+    print(f"[SERVER ]: {text}")
     
     
     
@@ -263,10 +299,10 @@ def prepare_game():
     os.system(defaults.CLS)
     print(f"All {len(player_list)} players are ready. Starting the game in 5 seconds...")
     
-    server.broadcast_packet(ntw.encoding.encode_game_about_to_start_packet())
+    server.broadcast_packet(ntw.packets.game_about_to_start.encode())
     sleep(defaults.game_starting_delay)
     print("Game has started.")
-    server.broadcast_packet(ntw.encoding.encode_game_started_packet())
+    server.broadcast_packet(ntw.packets.game_started.encode())
     game_has_started = True
     sleep(2)
     os.system(defaults.CLS)
@@ -275,7 +311,11 @@ def prepare_game():
     
     
 def game():
-    pass
+    """
+    The server has started the game, this function handles the game itself
+    """ # <- w comment ngl
+    while True: # (gonna review it soon with daddy techtech)
+        sleep(0.5)
     
 
 while True:
@@ -299,8 +339,9 @@ while True:
     
 
                     
-print("Reached EOF")
-sleep(3)
+print("Reached EOF") # idk how the code could possibly reach this part with a while true loop but anyways
+sleep(3) # W sleep [100% needed trust 🙏]
+
 ###########################################################################################################################################
     
     
