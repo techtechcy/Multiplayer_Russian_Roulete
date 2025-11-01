@@ -41,13 +41,18 @@ class cfg:
 
 class Gun:
     def __init__(self):
-        self.chambers = [False] * cfg.numbers_of_chambers
+        self.chambers: list[bool] = [False] * cfg.numbers_of_chambers
         self.load_bullet()
         self.spin_chambers()
 
-    def load_bullet(self):
-        bullet_position = random.randint(0, cfg.numbers_of_chambers - 1)
-        self.chambers[bullet_position] = True
+    def load_bullet(self, bullets: int = 1):
+        for i in range(1, bullets + 1):
+            bullet_position = random.randint(0, cfg.numbers_of_chambers - 1)
+            while self.chambers[bullet_position] == True:
+                bullet_position = random.randint(0, cfg.numbers_of_chambers - 1)
+            self.chambers[bullet_position] = True
+            # really efficient trust
+            # fr -enter
 
     def spin_chambers(self):
         random.shuffle(self.chambers)
@@ -55,6 +60,21 @@ class Gun:
     def pull_trigger(self):
         return self.chambers.pop(0)
     
+    def clear(self, deadly_bullets: int):
+        self.chambers: list[bool] = [False] * cfg.numbers_of_chambers
+        self.load_bullet(int(deadly_bullets))
+        self.spin_chambers()
+        
+    @property
+    def deadly_bullets(self) -> int:
+        i = 0
+        for chamber in self.chambers:
+            if chamber == True:
+                i += 1
+        return i
+                
+    
+
 
 class _server:
     def __init__(self, port: int = cfg.port):
@@ -162,12 +182,17 @@ class _server:
                 elif packet_type == ntw.packets.user_disconnection.RAW:
                     cprint(f"{client.get_user_from_ip(client_address[0])}: Disconnected Gracefully")
                     try:
-                        player_list.remove(client.get_user_from_ip(client_address[0]))
+                        player_list.remove(client.get_user_from_ip(client_address[0])) # type: ignore
                         client_socket.close()
                         should_accept_packets = False
                         break
                     except:
                         cprint("Cant disconnect player: Player never sent a connection packet")
+                
+                elif packet_type == ntw.packets.pressed_trigger.RAW:
+                    cl = client.get_user_from_ip(client_address[0])
+                    if cl and cl.selected:
+                        cl.pressed_trigger = True # type: ignore
                         
                     
                     
@@ -178,17 +203,56 @@ class _server:
                 cprint(f"Error handling client {client_address[0]}:{client_address[1]}:\n{e}")
                 print(f"There are {len(player_list)} players connected")
                 try:
-                    player_list.remove(client.get_user_from_ip(client_address[0]))
+                    player_list.remove(client.get_user_from_ip(client_address[0])) # type: ignore
                 except:
                     cprint("Cant disconnect player: Player never sent a connection packet")
                 return
 
-gun = Gun()
+
 server = _server()
 accept_connections_thread = threading.Thread(target=server.start_accepting_connections, daemon=True)
 
+class client:  # type: ignore
+    def __init__(self, csocket: socket.socket, client_ip: str, client_port: str, username: str): 
+        self.client_ip = client_ip
+        self.client_port = client_port
+        self.csocket = csocket
+        self.username = username
+        self.selected = False
+        self.alive = True
+        self.pressed_trigger = False
+        
+    @staticmethod
+    def get_user_from_ip(client_ip: str):
+        for user in player_list:
+            if user.client_ip == client_ip:
+                return user
+        return False
+    
+    def send_packet(self, data: str | bytes):
+        if type(data) == str:
+            data = data.encode()
+        self.csocket.send(data)  # type: ignore
+        
+    def select(self):
+        self.selected = True
+        self.send_packet(ntw.packets.player_selected.encode(self.username))
+
+        while not self.pressed_trigger: # explanation: waiting until the client presses the trigger
+            sleep(0.1)
+        
+        self.pressed_trigger = False
+        self.selected = False
+    
+    def kill(self):
+        self.alive = False
+        server.broadcast_packet(ntw.packets.player_eliminated.encode(self.username))
+    
+
+    
+
 user_with_gun = None
-player_list: list = []
+player_list: list[client] = []
 
 
 
@@ -251,61 +315,8 @@ if not cfg.nogui:
 def cprint(text: str):
     print(f"[SERVER]: {text}")
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-class client:  # type: ignore
-    def __init__(self, csocket: socket.socket, client_ip: str, client_port: str, username: str): 
-        self.client_ip = client_ip
-        self.client_port = client_port
-        self.csocket = csocket
-        self.username = username
-    
-    def send_packet(self, data: str | bytes):
-        if type(data) == str:
-            data = data.encode()
-        self.csocket.send(data)  # type: ignore
-    
 
-
-    
-
-            
-
-
-   
-
-            
-
-class client:
-    def __init__(self, csocket: socket.socket, client_ip: str, client_port: str, username: str): 
-        self.client_ip = client_ip
-        self.client_port = client_port
-        self.csocket = csocket
-        self.username = username
         
-    def send_packet(self, data: str | bytes):
-        if type(data) == str:
-            data.encode()
-        self.csocket.send(data)  # type: ignore
-        
-    @staticmethod
-    def get_user_from_ip(client_ip: str):
-        for user in player_list:
-            if user.client_ip == client_ip:
-                return user
-        return False
-        
-
-
-
 
     
 ############################################################### Actual Game ###############################################################
@@ -317,7 +328,7 @@ os.system(defaults.cls)
 def prepare_game():
     global game_has_started
     os.system(defaults.cls)
-    print(f"All {len(player_list)} players are ready. Starting the game in 5 seconds...")
+    print(f"All {len(player_list)} players are ready. Starting the game in {defaults.game_starting_delay} seconds...")
     
     server.broadcast_packet(ntw.packets.game_about_to_start.encode())
     sleep(defaults.game_starting_delay)
@@ -328,19 +339,32 @@ def prepare_game():
     os.system(defaults.cls)
 
     game()
-    
-    
+
 def game():
     """
     The server has started the game, this function handles the game itself
     """ # <- w comment ngl # ENTER WHAT IS THE POINT OF THIS DESCRIPTION AND COMMENT OF A FUNCTION THATS JUST A WHILE LOOP ENTER
     # WAIT A FUCKING MOMENT WHY IS THERE A ENDLESS WHILE LOOP HERE THATS USED
     # oh wait im the one that put it here
-    # fuck - techtech
+    # fuck (-techtech)
+    
+    gun = Gun()
+    turn_order = player_list.copy()
+    random.shuffle(turn_order)
+
+    deadly_bullets = gun.deadly_bullets
+    
     while True:
-        sleep(0.5)
-
-
+        while gun.deadly_bullets > 0:
+            for player in turn_order:
+                cprint(f"{player.username} has been selected")
+                player.select()
+                is_dead = gun.pull_trigger()
+                
+                if is_dead:
+                    print("")
+                    player.kill()
+            gun.clear(deadly_bullets)
 
 print("Server has Started!")
 while True:
@@ -349,28 +373,8 @@ while True:
         if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
             prepare_game()
     sleep(0.5)
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-                    
+       
 print("Reached EOF") # idk how the code could possibly reach this part with a while true loop but anyways
 sleep(3) # W sleep [100% needed trust 🙏]
 
 # shut the fuck up enter this was before the while loop i think -techtech
-
-###########################################################################################################################################
-    
-    
-    
-
-    
-    
-        
-
