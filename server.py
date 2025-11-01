@@ -160,7 +160,7 @@ class _server:
                     
                 
                 elif packet_type == ntw.packets.readiness.RAW:
-                    is_ready = args
+                    is_ready = int(args[0])
                     if is_ready:
                         server.ready_users.append(client_socket)
                         cprint(f"User from {client.get_user_from_ip(client_address[0])} is ready")
