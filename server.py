@@ -333,8 +333,11 @@ def prepare_game():
 def game():
     """
     The server has started the game, this function handles the game itself
-    """ # <- w comment ngl
-    while True: # (gonna review it soon with daddy techtech)
+    """ # <- w comment ngl # ENTER WHAT IS THE POINT OF THIS DESCRIPTION AND COMMENT OF A FUNCTION THATS JUST A WHILE LOOP ENTER
+    # WAIT A FUCKING MOMENT WHY IS THERE A ENDLESS WHILE LOOP HERE THATS USED
+    # oh wait im the one that put it here
+    # fuck - techtech
+    while True:
         sleep(0.5)
 
 
@@ -345,10 +348,6 @@ while True:
         sleep(defaults.delay_to_verify_ready_players)
         if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
             prepare_game()
-            
-
-    
-    
     sleep(0.5)
     
     
@@ -363,6 +362,8 @@ while True:
                     
 print("Reached EOF") # idk how the code could possibly reach this part with a while true loop but anyways
 sleep(3) # W sleep [100% needed trust 🙏]
+
+# shut the fuck up enter this was before the while loop i think -techtech
 
 ###########################################################################################################################################
     
