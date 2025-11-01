@@ -45,11 +45,13 @@ def log(msg):
 class defaults:
     GAME_NAME_NS = "MP_Russian_Roulette"
     GAME_NAME_WS = "Multiplayer Russian Roulette"
-    CLS = "cls"
 
 def clear_console():
     stop_all_printfs()
-    os.system(defaults.CLS) 
+    if sys.stdout.isatty():
+        print("\033[2J\033[H", end="")
+    else:
+        print("\n" * 100)
 
 def format_list(list: list | tuple):
     return str(list).replace("[", "").replace("]", "")
@@ -139,7 +141,7 @@ class server:
             return False
 
 if not sys.platform.startswith("win"):
-    printf("This code runs on windows only for some reason", finaldelay=2)
+    printf("This code runs on windows only", finaldelay=2)
     is_running.clear()
     sys.exit(0)
 
@@ -211,7 +213,7 @@ def handle_queue():
             connected = False
             break
 
-        time.sleep(0.05) # SMALL DELAY SO THE SERVER WON'T OVERFLOW WITH PACKETS
+        time.sleep(0.1)
 
 
     try:
@@ -304,6 +306,7 @@ def handle_packet(packet):
         printf(output, delay=0.03)
     
     elif packet_type == ntw.packets.player_selected.RAW:
+        clear_console()
         user_selected = str(args[0])
 
         printf("The silence fills the room...", delay=0.03, finaldelay=0.8)
@@ -311,18 +314,18 @@ def handle_packet(packet):
         if user_selected == username: # YOU HAVE BEEN SELECTED
             printf(f"The gun is being handed to you...", delay=0.03, finaldelay=0.2)
 
-            printf("The cold steel rests against your arm. Your pulse quickens — a single click could decide your fate", delay=0.03, finaldelay=0.2)
-            printf("The cylinder clicks into place...", delay=0.03, finaldelay=0.2)
-            printf("Sweat drips...", delay=0.03, finaldelay=0.2)
-            printf("Fate whispers your name...", delay=0.03, finaldelay=0.2)
-            printf("Hit Enter to press the trigger... if you dare...", delay=0.03, finaldelay=0.2)
+            printf("The cold steel rests against your arm. Your pulse quickens — a single click could decide your fate", delay=0.04, finaldelay=0.2)
+            printf("The cylinder clicks into place...", delay=0.04, finaldelay=0.2)
+            printf("Sweat drips...", delay=0.05, finaldelay=0.2)
+            printf("Fate whispers your name...", delay=0.04, finaldelay=0.2)
+            printf("Hit Enter to press the trigger... if you dare...", delay=0.04, newline=False)
 
             inp = input() # waiting for the user to press THE KEY enter
 
-            printf("For a heartbeat, the world stops...", delay=0.03, finaldelay=0.2)
-            printf("Is it over... or has fate spared you this time?", delay=0.03, finaldelay=0.2)
+            printf("For a heartbeat, the world stops...", delay=0.06, finaldelay=0.2)
+            printf("Is it over... or has fate spared you this time?", delay=0.06, finaldelay=0.2)
 
-            q.put(ntw.packets.pressed_trigger.encode()) # you are probably cooked
+            q.put(ntw.packets.pressed_trigger.encode())
         
         else: # ANOTHER PERSON HAS BEEN SELECTED
             printf(f"The room has gone silent while staring at {user_selected} as the gun was being handed to them...", delay=0.03)
@@ -330,7 +333,19 @@ def handle_packet(packet):
     elif packet_type == ntw.packets.clear_terminal.RAW:
         clear_console()
 
+def esc_kb():
+    while msvcrt.kbhit():
+        if msvcrt.getch() == b"esc":
+            if connected:
+                try:
+                    csocket.send(ntw.packets.user_disconnection.encode())
+                except:
+                    pass
 
+                sys.exit(0)
+        time.sleep(0.1)
+
+threading.Thread(target=esc_kb, daemon=True).start()
 
 username = ""
 is_valid = False
