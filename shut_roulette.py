@@ -19,6 +19,12 @@ q = queue.Queue()
 logger = queue.Queue()
 
 
+def get_public_servers() -> list[tuple]: # hard coded 'for now' because im lazy (-techtech)
+    """Returns a list of tuples:
+    [(server_ip, server_port, server_name)]"""
+    return [("85.132.234.152", 2046, "EU Lobby #1")]
+
+
 def main():
     root = tk.Tk()
     root.wm_attributes("-topmost", True)
@@ -140,20 +146,39 @@ if not sys.platform.startswith("win"):
 printf("Welcome to Shut Roulette!")
 time.sleep(0.5)
 printf("----------------------------------------------", delay=0.01, newline=True)
+printf("Available Servers:")
 
-server_ip_input = input(f"Enter server IP address (press Enter for default IP: {ntw.default_host}): ") or str(ntw.default_host)
-server_port_input = None
+servers = get_public_servers()
 
-while server_port_input == None:
-    inp = input(f"Enter server port (press Enter for default port: {ntw.default_port}): ") or str(ntw.default_port)
+# Print the server list
+for index, (_, _, server_name) in enumerate(servers, start=1):
+    printf(f"{index}. {server_name}", delay=0.04, newline=True)
 
-    try:
-        inted = int(inp)
-    except:
-        server_port_input = None
-        printf("Invalid server port input")
-    else:
-        server_port_input = inted
+
+choice = input("Select a server by number (or press Enter to enter manually): ").strip()
+
+if choice.isdigit() and 1 <= int(choice) <= len(servers):
+    selected_server = servers[int(choice) - 1]
+    server_ip_input, server_port_input, _ = selected_server
+    printf(f"Selected: {selected_server[2]} ({server_ip_input}:{server_port_input})")
+else:
+    server_ip_input = input(
+        f"Enter server IP address (press Enter for default IP: {ntw.default_host}): "
+    ) or str(ntw.default_host)
+
+    server_port_input = None
+    while server_port_input is None:
+        inp = input(
+            f"Enter server port (press Enter for default port: {ntw.default_port}): "
+        ) or str(ntw.default_port)
+
+        try:
+            inted = int(inp)
+        except ValueError:
+            printf("Invalid server port input")
+            server_port_input = None
+        else:
+            server_port_input = inted
 
 connection_server = server()
 
@@ -188,6 +213,7 @@ def handle_queue():
 
         time.sleep(0.05) # SMALL DELAY SO THE SERVER WON'T OVERFLOW WITH PACKETS
 
+
     try:
         if connected:
             csocket.send(ntw.packets.user_disconnection.encode())
@@ -195,6 +221,7 @@ def handle_queue():
     except Exception:
         pass
     printf("Disconnected from server")
+    
 
 def recv():
     global connected, csocket, players, player_count, started, about_to_start
