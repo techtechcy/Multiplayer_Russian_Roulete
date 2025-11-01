@@ -251,6 +251,7 @@ class ntw:
         """Exception raised when a packet is invalid and unable to be decoded/encoded"""
         def __init__(self, message, packet_type: str, location: str):
             super().__init__(message)
+            self.message = message
             self.packet_type = packet_type
             self.location = location
 
@@ -283,7 +284,6 @@ class ntw:
 
             ############# Malformed Packet Checks #############
 
-            # is_valid = ntw.decoding.is_valid_packet(parts)
             raw_packet_type = parts[1]
             packet_class = ntw.get_packet_by_raw(raw_packet_type) # returns the class of the packet
             

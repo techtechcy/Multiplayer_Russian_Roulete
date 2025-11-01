@@ -247,65 +247,85 @@ def recv():
 
             buffer += response.decode()
 
-            if buffer.startswith(ntw.start) and buffer.endswith(ntw.end):
+            if buffer.startswith(ntw.start) and buffer.find(ntw.end) != -1:
                 break
-        
-        log("INCOMING: " + buffer)
-        packet_type, packet_class, args = ntw.decoding.decode_packet(buffer)
-        packet_type: str
-        packet_class: ntw.packets.general_packet
-        args: list[str]
-        
-        
-        if packet_type == ntw.packets.heartbeat_response.RAW:
-            old_player_count = player_count
-            player_count = int(args[0])
-
-            if old_player_count != player_count:
-                q.put(ntw.packets.request_players.encode())
             
-        elif packet_type == ntw.packets.game_about_to_start.RAW:
-            about_to_start = True
+        while buffer.find(ntw.start) != -1 and buffer.find(ntw.end) != -1:
+            start_index = buffer.find(ntw.start)
+            end_index = buffer.find(ntw.end)
 
-            clear_console()
-            printf("Game is about to start...", delay=0.03)
+            if start_index == -1 or end_index == -1 or end_index < start_index:
+                # No full packet yet — wait for more data
+                break
 
-        elif packet_type == ntw.packets.game_started.RAW:
-            started = True
-        
-        elif packet_type == ntw.packets.players.RAW:
-            players = args
-        
-        elif packet_type == ntw.packets.message_to_print.RAW:
-            output = str(args[0])
-            printf(output, delay=0.03)
-        
-        elif packet_type == ntw.packets.player_selected.RAW:
-            user_selected = str(args[0])
+            # Extract the packet including start/end
+            full_packet = buffer[start_index:end_index + len(ntw.end)]
 
-            printf("The silence fills the room...", delay=0.03, finaldelay=0.8)
+            # Remove the processed packet from the buffer
+            buffer = buffer[end_index + len(ntw.end):]
             
-            if user_selected == username: # YOU HAVE BEEN SELECTED
-                printf(f"The gun is being handed to you...", delay=0.03, finaldelay=0.2)
-
-                printf("The cold steel rests against your arm. Your pulse quickens — a single click could decide your fate", delay=0.03, finaldelay=0.2)
-                printf("The cylinder clicks into place...", delay=0.03, finaldelay=0.2)
-                printf("Sweat drips...", delay=0.03, finaldelay=0.2)
-                printf("Fate whispers your name...", delay=0.03, finaldelay=0.2)
-                printf("Hit Enter to press the trigger... if you dare...", delay=0.03, finaldelay=0.2)
-
-                inp = input() # waiting for the user to press THE KEY enter
-
-                printf("For a heartbeat, the world stops...", delay=0.03, finaldelay=0.2)
-                printf("Is it over... or has fate spared you this time?", delay=0.03, finaldelay=0.2)
-
-                q.put(ntw.packets.pressed_trigger.encode()) # you are probably cooked
+            handle_packet(full_packet)
             
-            else: # ANOTHER PERSON HAS BEEN SELECTED
-                printf(f"The room has gone silent while staring at {user_selected} as the gun was being handed to them...", delay=0.03)
         
-        elif packet_type == ntw.packets.clear_terminal.RAW:
-            clear_console()
+        
+def handle_packet(packet):
+    global player_count
+    log("INCOMING: " + packet)
+    packet_type, packet_class, args = ntw.decoding.decode_packet(packet)
+    packet_type: str
+    packet_class: ntw.packets.general_packet
+    args: list[str]
+    
+    
+    if packet_type == ntw.packets.heartbeat_response.RAW:
+        old_player_count = player_count
+        player_count = int(args[0])
+
+        if old_player_count != player_count:
+            q.put(ntw.packets.request_players.encode())
+        
+    elif packet_type == ntw.packets.game_about_to_start.RAW:
+        about_to_start = True
+
+        clear_console()
+        printf("Game is about to start...", delay=0.03)
+
+    elif packet_type == ntw.packets.game_started.RAW:
+        started = True
+    
+    elif packet_type == ntw.packets.players.RAW:
+        players = args
+    
+    elif packet_type == ntw.packets.message_to_print.RAW:
+        output = str(args[0])
+        printf(output, delay=0.03)
+    
+    elif packet_type == ntw.packets.player_selected.RAW:
+        user_selected = str(args[0])
+
+        printf("The silence fills the room...", delay=0.03, finaldelay=0.8)
+        
+        if user_selected == username: # YOU HAVE BEEN SELECTED
+            printf(f"The gun is being handed to you...", delay=0.03, finaldelay=0.2)
+
+            printf("The cold steel rests against your arm. Your pulse quickens — a single click could decide your fate", delay=0.03, finaldelay=0.2)
+            printf("The cylinder clicks into place...", delay=0.03, finaldelay=0.2)
+            printf("Sweat drips...", delay=0.03, finaldelay=0.2)
+            printf("Fate whispers your name...", delay=0.03, finaldelay=0.2)
+            printf("Hit Enter to press the trigger... if you dare...", delay=0.03, finaldelay=0.2)
+
+            inp = input() # waiting for the user to press THE KEY enter
+
+            printf("For a heartbeat, the world stops...", delay=0.03, finaldelay=0.2)
+            printf("Is it over... or has fate spared you this time?", delay=0.03, finaldelay=0.2)
+
+            q.put(ntw.packets.pressed_trigger.encode()) # you are probably cooked
+        
+        else: # ANOTHER PERSON HAS BEEN SELECTED
+            printf(f"The room has gone silent while staring at {user_selected} as the gun was being handed to them...", delay=0.03)
+    
+    elif packet_type == ntw.packets.clear_terminal.RAW:
+        clear_console()
 
 
 
