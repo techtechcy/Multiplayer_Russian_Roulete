@@ -50,6 +50,7 @@ def format_list(list: list | tuple):
 
 _active_printfs = set()
 _active_lock = threading.Lock()
+is_running = threading.Event()
 
 def stop_all_printfs():
     with _active_lock:
@@ -95,7 +96,7 @@ def printf(text: str, delay: float = 0.06, newline: bool = True, finaldelay: flo
     with _active_lock:
         _active_printfs.discard(cancel_flag)
             
-game_is_running = True
+is_running.set()
 csocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 class server:
@@ -133,7 +134,7 @@ class server:
 
 if not sys.platform.startswith("win"):
     printf("This code runs on windows only for some reason", finaldelay=2)
-    game_is_running = False
+    is_running.clear()
     sys.exit(0)
 
 printf("Welcome to Shut Roulette!")
@@ -200,7 +201,7 @@ def recv():
 
     while connected:
         buffer = ""
-        while game_is_running:
+        while is_running.is_set(): # if the is_running event is true
             csocket.settimeout(None)
             
             try:
@@ -295,7 +296,7 @@ while not is_valid:
 connected = connection_server.connect_to_server(server_ip_input, server_port_input)
 
 if not connected:
-    game_is_running = False
+    is_running.clear()
     csocket.close()
     sys.exit(0)
 
@@ -333,7 +334,7 @@ if connected:
                 show_pregame_menu()
             elif key == b'4':
                 printf("Exiting...", finaldelay=1.5)
-                game_is_running = False
+                is_running.clear()
                 if connected:
                     csocket.send(ntw.packets.user_disconnection.encode())
                 csocket.close()
