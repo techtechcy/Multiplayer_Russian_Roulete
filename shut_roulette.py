@@ -155,8 +155,6 @@ servers = get_public_servers()
 # Print the server list
 for index, (_, _, server_name) in enumerate(servers, start=1):
     printf(f"{index}. {server_name}", delay=0.04, newline=True)
-
-
 choice = input("Select a server by number (or press Enter to enter manually): ").strip()
 
 if choice.isdigit() and 1 <= int(choice) <= len(servers):
@@ -320,15 +318,15 @@ def handle_packet(packet):
             printf("Fate whispers your name...", delay=0.04, finaldelay=0.2)
             printf("Hit Enter to press the trigger... if you dare...", delay=0.04, newline=False)
 
-            inp = input() # waiting for the user to press THE KEY enter
+            inp = input() 
 
             printf("For a heartbeat, the world stops...", delay=0.06, finaldelay=0.2)
             printf("Is it over... or has fate spared you this time?", delay=0.06, finaldelay=0.2)
 
             q.put(ntw.packets.pressed_trigger.encode())
         
-        else: # ANOTHER PERSON HAS BEEN SELECTED
-            printf(f"The room has gone silent while staring at {user_selected} as the gun was being handed to them...", delay=0.03)
+        else:
+            printf(f"The room has gone silent while staring at {user_selected} as the gun was being handed to them...", delay=0.05)
     
     elif packet_type == ntw.packets.clear_terminal.RAW:
         clear_console()
