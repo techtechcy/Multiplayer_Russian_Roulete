@@ -285,15 +285,18 @@ def handle_packet(packet):
             q.put(ntw.packets.request_players.encode())
         
     elif packet_type == ntw.packets.game_about_to_start.RAW:
+        global about_to_start
         about_to_start = True
 
         clear_console()
         printf("Game is about to start...", delay=0.03)
 
     elif packet_type == ntw.packets.game_started.RAW:
+        global started
         started = True
     
     elif packet_type == ntw.packets.players.RAW:
+        global players
         players = args
     
     elif packet_type == ntw.packets.message_to_print.RAW:

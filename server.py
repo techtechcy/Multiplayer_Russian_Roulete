@@ -145,7 +145,6 @@ class _server:
                 
                 if packet_type == ntw.packets.heartbeat.RAW:
                     respond_PACKET = ntw.packets.heartbeat_response.encode(len(player_list))
-                    cprint(f"Received Heartbeat, responding with {respond_PACKET}")
                     client_socket.send(respond_PACKET)
                 
                 elif packet_type == ntw.packets.connection.RAW:
@@ -154,7 +153,7 @@ class _server:
                     if not is_valid:
                         client_socket.send(ntw.packets.invalid_username.encode(error_message, delay))
                     else:
-                        player_list.append(client(csocket=client_socket, client_ip=client_address[0], client_port=client_address[1], username=username))
+                        player_list.append(client(csocket=client_socket, client_ip=client_address[0], client_port=client_address[1], username=username, server=self))
                         cprint(f"User '{username}' connected from {client_address[0]}:{client_address[1]}")
                         
                     
@@ -163,10 +162,10 @@ class _server:
                     is_ready = int(args[0])
                     if is_ready:
                         server.ready_users.append(client_socket)
-                        cprint(f"User from {client.get_user_from_ip(client_address[0])} is ready")
+                        cprint(f"User from {client.get_user_from_ip(client_address[0]).username} is ready") # type: ignore
                     else:
                         server.ready_users.remove(client_socket)
-                        cprint(f"User from {client.get_user_from_ip(client_address[0])} is no longer ready")
+                        cprint(f"User from {client.get_user_from_ip(client_address[0]).username} is no longer ready") # type: ignore
                 
                 elif packet_type == ntw.packets.invalid_packet.RAW:
                     cprint(f"Received invalid packet from client: {args}, {full_packet}")
@@ -213,7 +212,7 @@ server = _server()
 accept_connections_thread = threading.Thread(target=server.start_accepting_connections, daemon=True)
 
 class client:  # type: ignore
-    def __init__(self, csocket: socket.socket, client_ip: str, client_port: str, username: str): 
+    def __init__(self, csocket: socket.socket, client_ip: str, client_port: str, username: str, server: _server): 
         self.client_ip = client_ip
         self.client_port = client_port
         self.csocket = csocket
@@ -221,6 +220,7 @@ class client:  # type: ignore
         self.selected = False
         self.alive = True
         self.pressed_trigger = False
+        self.server = server
         
     @staticmethod
     def get_user_from_ip(client_ip: str):
@@ -236,7 +236,7 @@ class client:  # type: ignore
         
     def select(self):
         self.selected = True
-        self.send_packet(ntw.packets.player_selected.encode(self.username))
+        self.server.broadcast_packet(ntw.packets.player_selected.encode(self.username))
 
         while not self.pressed_trigger: # explanation: waiting until the client presses the trigger
             sleep(0.1)
@@ -249,15 +249,7 @@ class client:  # type: ignore
         server.broadcast_packet(ntw.packets.player_eliminated.encode(self.username))
     
 
-    
-
-user_with_gun = None
 player_list: list[client] = []
-
-
-
-
-
 
 
 if not cfg.nogui:
@@ -311,14 +303,8 @@ if not cfg.nogui:
 
     threading.Thread(target=main, daemon=True).start()
     
-    
 def cprint(text: str):
     print(f"[SERVER]: {text}")
-    
-
-        
-
-    
 ############################################################### Actual Game ###############################################################
 sleep(0.5)
 accept_connections_thread.start()
@@ -340,14 +326,7 @@ def prepare_game():
 
     game()
 
-def game():
-    """
-    The server has started the game, this function handles the game itself
-    """ # <- w comment ngl # ENTER WHAT IS THE POINT OF THIS DESCRIPTION AND COMMENT OF A FUNCTION THATS JUST A WHILE LOOP ENTER
-    # WAIT A FUCKING MOMENT WHY IS THERE A ENDLESS WHILE LOOP HERE THATS USED
-    # oh wait im the one that put it here
-    # fuck (-techtech)
-    
+def game():    
     gun = Gun()
     turn_order = player_list.copy()
     random.shuffle(turn_order)
@@ -356,15 +335,18 @@ def game():
     
     while True:
         while gun.deadly_bullets > 0:
+            print(f"Gun State:\nChamber:{gun.chambers}")
             for player in turn_order:
                 cprint(f"{player.username} has been selected")
                 player.select()
                 is_dead = gun.pull_trigger()
                 
                 if is_dead:
-                    print("")
+                    print(f"{player.username} died")
                     player.kill()
-            gun.clear(deadly_bullets)
+                else:
+                    print(f"{player.username} is safe")
+        gun.clear(deadly_bullets)
 
 print("Server has Started!")
 while True:
