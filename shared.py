@@ -308,6 +308,7 @@ class ntw:
                 args.remove(ntw.start) 
                 args.remove(raw_packet_type)
                 args.remove(ntw.end)
+                print(f"Decoded Packet: {(raw_packet_type, packet_class, parts)}")
                 return (raw_packet_type, packet_class, parts)
             
         
