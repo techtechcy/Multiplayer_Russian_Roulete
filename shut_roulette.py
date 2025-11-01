@@ -393,7 +393,7 @@ if connected:
                 printf("".join(f"{index + 1}. {plrname}\n" for index, plrname in enumerate(players)), finaldelay=3, newline=False)
                 show_pregame_menu()
             elif key == b'3':
-                printf(f"{player_count} Player{"s" if player_count > 1 else ""} in this lobby", finaldelay=3)
+                printf(f"{player_count} Player{'s' if player_count > 1 else ''} in this lobby", finaldelay=3)
                 show_pregame_menu()
             elif key == b'4':
                 printf("Exiting...", finaldelay=1.5)
