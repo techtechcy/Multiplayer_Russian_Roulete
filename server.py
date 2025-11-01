@@ -1,13 +1,23 @@
 import os
+import queue
 import socket
 import random
-import queue
+import argparse
+import platform
 import threading
-import tkinter as tk
-from tkinter import * # type: ignore [wildcard import pylance 🔥]
-from shared import ntw
 from time import sleep
-from tkinter.ttk import * # type: ignore [w pylance]
+from shared import ntw
+from typing import Literal
+
+
+parser = argparse.ArgumentParser(description='Russian_Roulette_Server')
+
+parser.add_argument('--chambers', action="store", type=int, default=6)
+parser.add_argument('--port', action="store", type=int, default=ntw.default_port)
+parser.add_argument("--nogui", action="store_true", help="Disable the gui")
+parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+
+fargs = parser.parse_args()
 
 
 
@@ -15,21 +25,28 @@ os.system("cls")
 q = queue.Queue()
 
 class defaults:
-    port = ntw.default_port
-    numbers_of_chambers = 6
-    max_clients = numbers_of_chambers - 1
-    CLS = "cls"
+    op_sys: Literal["Linux", "Windows", "Java", ""] = platform.system() # type: ignore
+    cls = "cls" if op_sys == "Windows" else "clear"
     game_starting_delay = 5 # in seconds
     delay_to_verify_ready_players = 2 # in seconds
+    
+class cfg:
+    numbers_of_chambers = fargs.chambers
+    port = fargs.port
+    nogui = fargs.nogui
+    debug = fargs.debug
+
+    max_clients = numbers_of_chambers - 1
+    
 
 class Gun:
     def __init__(self):
-        self.chambers = [False] * defaults.numbers_of_chambers
+        self.chambers = [False] * cfg.numbers_of_chambers
         self.load_bullet()
         self.spin_chambers()
 
     def load_bullet(self):
-        bullet_position = random.randint(0, defaults.numbers_of_chambers - 1)
+        bullet_position = random.randint(0, cfg.numbers_of_chambers - 1)
         self.chambers[bullet_position] = True
 
     def spin_chambers(self):
@@ -40,10 +57,10 @@ class Gun:
     
 
 class _server:
-    def __init__(self, port: int = defaults.port):
+    def __init__(self, port: int = cfg.port):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind(("", port))
-        self.server_socket.listen(defaults.max_clients)
+        self.server_socket.listen(cfg.max_clients)
         print(f"Server listening on port {port}")
         
         self.ready_users = []
@@ -179,56 +196,60 @@ player_list: list = []
 
 
 
-
-class GUI(tk.Frame):
-
-    # This class defines the graphical user interface 
-
-    def __init__(self, parent: tk.Tk, server: _server, *args, **kwargs):
-        tk.Frame.__init__(self, parent, *args, **kwargs)
-        self.root = parent
-        self.build_gui()
+if not cfg.nogui:
+    import tkinter as tk
+    from tkinter import * # type: ignore [wildcard import pylance 🔥]
+    from tkinter.ttk import * # type: ignore [w pylance]
     
-    def build_gui(self):                    
-        # Build GUI
-        self.root.title('Packet Testing')
+    class GUI(tk.Frame):
+
+        # This class defines the graphical user interface 
+
+        def __init__(self, parent: tk.Tk, server: _server, *args, **kwargs):
+            tk.Frame.__init__(self, parent, *args, **kwargs)
+            self.root = parent
+            self.build_gui()
         
-        
-        def broadcast_game_started_packet():
-            print("Broadcasting Game Started Packet...")
-            server.broadcast_packet(ntw.packets.game_started.encode())
+        def build_gui(self):                    
+            # Build GUI
+            self.root.title('Packet Testing')
             
-        def broadcast_clear_terminal_packet():
-            print("Broadcasting Game Started Packet...")
-            server.broadcast_packet(ntw.packets.clear_terminal.encode())
             
+            def broadcast_game_started_packet():
+                print("Broadcasting Game Started Packet...")
+                server.broadcast_packet(ntw.packets.game_started.encode())
+                
+            def broadcast_clear_terminal_packet():
+                print("Broadcasting Game Started Packet...")
+                server.broadcast_packet(ntw.packets.clear_terminal.encode())
+                
 
-        
-        
-        ################### Buttons ####################
-        broadcast_game_started_btn = tk.Button(self.root, text="Broadcast Packet: Game Started", command=broadcast_game_started_packet)
-        broadcast_game_started_btn.pack(pady=10)
-        
-        broadcast_game_started_btn = tk.Button(self.root, text="Broadcast Packet: Clear Terminal", command=broadcast_clear_terminal_packet)
-        broadcast_game_started_btn.pack(pady=10)
-        ################################################
-
-
-
-def main():
-    root = tk.Tk()
-    root.geometry("500x500")
-    root.wm_attributes("-topmost", True)
-    GUI(root, server)
-
-    root.mainloop()
+            
+            
+            ################### Buttons ####################
+            broadcast_game_started_btn = tk.Button(self.root, text="Broadcast Packet: Game Started", command=broadcast_game_started_packet)
+            broadcast_game_started_btn.pack(pady=10)
+            
+            broadcast_game_started_btn = tk.Button(self.root, text="Broadcast Packet: Clear Terminal", command=broadcast_clear_terminal_packet)
+            broadcast_game_started_btn.pack(pady=10)
+            ################################################
 
 
-threading.Thread(target=main, daemon=True).start()
+
+    def main():
+        root = tk.Tk()
+        root.geometry("500x500")
+        root.wm_attributes("-topmost", True)
+        GUI(root, server)
+
+        root.mainloop()
+
+
+    threading.Thread(target=main, daemon=True).start()
     
     
 def cprint(text: str):
-    print(f"[SERVER ]: {text}")
+    print(f"[SERVER]: {text}")
     
     
     
@@ -291,11 +312,11 @@ class client:
 sleep(0.5)
 accept_connections_thread.start()
 game_has_started = False
-os.system(defaults.CLS)
+os.system(defaults.cls)
 
 def prepare_game():
     global game_has_started
-    os.system(defaults.CLS)
+    os.system(defaults.cls)
     print(f"All {len(player_list)} players are ready. Starting the game in 5 seconds...")
     
     server.broadcast_packet(ntw.packets.game_about_to_start.encode())
@@ -304,7 +325,7 @@ def prepare_game():
     server.broadcast_packet(ntw.packets.game_started.encode())
     game_has_started = True
     sleep(2)
-    os.system(defaults.CLS)
+    os.system(defaults.cls)
 
     game()
     
