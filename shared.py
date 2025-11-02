@@ -4,6 +4,7 @@ import typing
 import inspect
 import logging
 import datetime
+from time import sleep
 
 class cfg:
     should_crash = True
@@ -90,6 +91,36 @@ except:
             
 #####################################################################################################################################################
 
+
+class sound_control:
+    @staticmethod
+    def play_sound(sound_file, block = True):
+        """Only works on windows"""
+        from ctypes import c_buffer, windll
+        from random import random
+        from sys    import getfilesystemencoding
+
+        def winCommand(*command):
+            buf = c_buffer(255)
+            command = ' '.join(command).encode(getfilesystemencoding())
+            errorCode = int(windll.winmm.mciSendStringA(command, buf, 254, 0))
+            if errorCode:
+                errorBuffer = c_buffer(255)
+                windll.winmm.mciGetErrorStringA(errorCode, errorBuffer, 254)
+                exceptionMessage = ('\n    Error ' + str(errorCode) + ' for command:'
+                                    '\n        ' + command.decode() +
+                                    '\n    ' + errorBuffer.value.decode())
+                raise Exception(exceptionMessage)
+            return buf.value
+
+        alias = 'playsound_' + str(random())
+        winCommand('open "' + sound_file + '" alias', alias)  
+        winCommand('set', alias, 'time format milliseconds')
+        durationInMS = winCommand('status', alias, 'length')
+        winCommand('play', alias, 'from 0 to', durationInMS.decode())
+
+        if block:
+            sleep(float(durationInMS) / 1000.0)
 
 
 class ntw:
