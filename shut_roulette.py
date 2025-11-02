@@ -299,7 +299,7 @@ def handle_packet(packet):
     
     elif packet_type == ntw.packets.players.RAW:
         global players
-        players = args
+        players = [player for player in args[0].split(ntw.arg_list_sep) if len(player) > 0]
     
     elif packet_type == ntw.packets.message_to_print.RAW:
         output = str(args[0])
