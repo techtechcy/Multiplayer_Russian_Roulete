@@ -1,16 +1,14 @@
-import socket
-import queue
-import time
 import os
 import sys
-import msvcrt
-import threading
-from shared import ntw
 import time
+import queue
+import socket
+import msvcrt
+import platform
 import threading
-from shared import myGUI
+import subprocess
 import tkinter as tk
-from collections import Counter
+from shared import ntw, myGUI
 
 gun_texture = "▄︻テ══━一"
 gun_effect = "💥"
@@ -48,10 +46,14 @@ class defaults:
 
 def clear_console():
     stop_all_printfs()
-    if sys.stdout.isatty():
-        print("\033[2J\033[H", end="")
-    else:
-        print("\n" * 100)
+    if platform.system() == "Windows":
+        if platform.release() in {"10", "11"}:
+            subprocess.run("", shell=True)
+            print("\033c", end="")
+        else:
+            subprocess.run(["cls"])
+    else: #Linux and Mac
+        print("\033c", end="")
 
 def format_list(list: list | tuple):
     return str(list).replace("[", "").replace("]", "")
