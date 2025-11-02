@@ -327,11 +327,16 @@ def handle_packet(packet):
         
         else:
             printf(f"The room has gone silent while staring at {user_selected} as the gun was being handed to them...", delay=0.05)
+    
+    elif packet_type == ntw.packets.game_over.RAW:
+        clear_console()
+        winner = str(args[0])
+        printf(f"The game is over.{'Unfortunanly' if winner.lower() == 'boofs' else ''} The winner is {winner}")
             
     elif packet_type == ntw.packets.player_eliminated.RAW:
         player_eliminated = str(args[0])
         if player_eliminated.lower() == "boofs": printf("The victim presses the trigger... Luckily, the body of Boofs drops to the ground", delay=0.09)
-        if player_eliminated.lower() == "hitler" or player_eliminated.lower() == "h1tler": printf("The victim presses the trigger... The body of hitle.. oh for god's sake what degenerate made their username the name of the mustache guy? Anyways, his body drops to the ground like in 1945...", delay=0.07)
+        if player_eliminated.lower() == "hitler" or player_eliminated.lower() == "h1tler": printf("The victim presses the trigger... The body of Hitle.. oh for god's sake what degenerate made their username the name of the mustache guy? Anyways, his body drops to the ground like in 1945...", delay=0.07)
         else:
             printf(f"The victim presses the trigger.... The body of {player_eliminated} drops to the ground...", delay=0.09)
     

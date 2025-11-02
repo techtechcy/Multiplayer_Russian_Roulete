@@ -341,27 +341,29 @@ def run_game():
     
     while game.is_running.is_set():
         if len(alive_players) < 1:
-            print(f"Alive Player count reached {len(alive_players)}. Shutting Down Game...")
+            cprint(f"Alive Player count reached {len(alive_players)}. Shutting Down Game...")
+            winner = alive_players[0]
             game.is_running.clear()
             break
-        
+
         while gun.deadly_bullets > 0:
-            print(f"Gun State:\nChamber:{gun.chambers}") # temporary for debug purposes, this is a reminder to remove it
             for current_player in turn_order:
-                cprint(f"{current_player.username} has been selected")
+                cprint(f"\n{current_player.username} has been selected\n")
                 current_player.select()
                 is_dead = gun.pull_trigger()
                 
                 if is_dead:
-                    print(f"{current_player.username} was shot")
+                    cprint(f"\n{current_player.username} was shot\n")
                     current_player.kill()
                     alive_players.remove(current_player)
                 else:
-                    print(f"{current_player.username} fired a blank round")
+                    cprint(f"\n{current_player.username} fired a blank round\n")
+                    server.broadcast_packet(ntw.packets.player_is_safe.encode(str(current_player.username)))
         gun.clear(deadly_bullets)
     
     try: 
-        game.is_running.clear() 
+        print("Sending game over packets to all players...")
+        server.broadcast_packet(ntw.packets.game_over.encode(str(winner.username))) # pyright: ignore[reportPossiblyUnboundVariable] # actually pylance i think its impossible for the winner variable to be unbound but anyways
     except: pass
 
 print("Server has Started!")
@@ -376,6 +378,7 @@ while not game.is_running.is_set():
        
        
        
-print("Reached EOF") # idk how the code could possibly reach this part with a while true loop but anyways
+print("\n\nReached EOF\n\n") # idk how the code could possibly reach this part with a while true loop but anyways
 sleep(3) # W sleep [100% needed trust 🙏]
-# shut the fuck up enter this was before the while loop i think -techtech
+# shut the fuck up enter this was before the while true loop i think -techtech
+# would you look at that the while true loop IS REMOVED ENTER

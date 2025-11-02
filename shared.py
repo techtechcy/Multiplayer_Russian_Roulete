@@ -123,7 +123,6 @@ class ntw:
             RAW: str
             ARG_NUMBER: int
             SIDE: typing.Literal["client", "server", "both"]
-            
         class heartbeat(general_packet):
             RAW = "hbt"
             ARG_NUMBER = 0
@@ -238,6 +237,22 @@ class ntw:
             @classmethod
             def encode(cls, msg: str, delay: float = 0.06):
                 return (ntw.start + ntw.sep + cls.RAW + ntw.sep + str(msg) + ntw.sep + str(delay) + ntw.sep + ntw.end).encode()
+        class player_is_safe(general_packet):
+            RAW: str = "frd_blk"
+            ARG_NUMBER = 1
+            SIDE = "server"
+            @classmethod
+            def encode(cls, player_that_is_safe: str) -> bytes:
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + str(player_that_is_safe) + ntw.sep + ntw.end).encode()    
+        class game_over(general_packet):
+            RAW = "gm_over"
+            ARG_NUMBER = 1
+            SIDE = "server"
+            @classmethod
+            def encode(cls, winner: str) -> bytes:
+                return (ntw.start + ntw.sep + cls.RAW + ntw.sep + str(winner) + ntw.sep + ntw.end).encode()
+    
+    
     
     @classmethod
     def get_packet_by_raw(cls, raw: str):
