@@ -34,7 +34,10 @@ try:
                 # Autoscroll to the bottom
                 self.text.yview(tk.END)
             # This is necessary because we can't modify the Text from other threads
-            self.text.after(0, append)
+            try:
+                self.text.after(0, append)
+            except:
+                pass
             
     class myGUI(tk.Frame):
 

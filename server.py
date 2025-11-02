@@ -113,7 +113,12 @@ class _server:
             try:
                 while True:
                     data = client_socket.recv(ntw.max_packet_size)
-                    cprint(f"Received Raw Packet: {data.decode()}")
+                    if not data == b"(*|||hbt|||*)":
+                        try:
+                            if "client_object" in locals():
+                                cprint(f"{client_object.username}: {data.decode()}") # pyright: ignore[reportPossiblyUnboundVariable] # thats why its in a fucking try except & a variable check stupid pylance
+                        except:
+                            cprint(f"{client_address[0]}: {data.decode()}")
                     
                     if not data:
                         return
@@ -155,7 +160,8 @@ class _server:
                     if not is_valid:
                         client_socket.send(ntw.packets.invalid_username.encode(error_message, delay))
                     else:
-                        player_list.append(client(csocket=client_socket, client_ip=client_address[0], client_port=client_address[1], username=username, server=self))
+                        client_object = client(csocket=client_socket, client_ip=client_address[0], client_port=client_address[1], username=username, server=self)
+                        player_list.append(client_object)
                         cprint(f"User '{username}' connected from {client_address[0]}:{client_address[1]}")
                         
                     
@@ -241,7 +247,7 @@ class client:  # type: ignore
         self.server.broadcast_packet(ntw.packets.player_selected.encode(self.username))
 
         while not self.pressed_trigger: # explanation: waiting until the client presses the trigger
-            sleep(0.1)
+            sleep(0.2)
         
         self.pressed_trigger = False
         self.selected = False
