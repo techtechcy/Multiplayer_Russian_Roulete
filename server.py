@@ -21,7 +21,7 @@ fargs = parser.parse_args()
 
 
 
-os.system("cls")
+
 q = queue.Queue()
 
 class defaults:
@@ -29,6 +29,8 @@ class defaults:
     cls = "cls" if op_sys == "Windows" else "clear"
     game_starting_delay = 5 # in seconds
     delay_to_verify_ready_players = 2 # in seconds
+    
+os.system(defaults.cls)
     
 class cfg:
     numbers_of_chambers = fargs.chambers
@@ -309,11 +311,9 @@ def cprint(text: str):
 sleep(0.5)
 accept_connections_thread.start()
 game_has_started = False
-os.system(defaults.cls)
 
 def prepare_game():
     global game_has_started
-    os.system(defaults.cls)
     print(f"All {len(player_list)} players are ready. Starting the game in {defaults.game_starting_delay} seconds...")
     
     server.broadcast_packet(ntw.packets.game_about_to_start.encode())
@@ -321,42 +321,61 @@ def prepare_game():
     print("Game has started.")
     server.broadcast_packet(ntw.packets.game_started.encode())
     game_has_started = True
-    sleep(2)
-    os.system(defaults.cls)
+    run_game()
 
-    game()
 
-def game():    
+
+
+
+class game:
+    is_running = threading.Event()
+
+def run_game():
+    game.is_running.set()
     gun = Gun()
     turn_order = player_list.copy()
     random.shuffle(turn_order)
+    alive_players = player_list.copy()
 
     deadly_bullets = gun.deadly_bullets
     
-    while True:
+    while game.is_running.is_set():
+        if len(alive_players) < 1:
+            print(f"Alive Player count reached {len(alive_players)}. Shutting Down Game...")
+            game.is_running.clear()
+            break
+        
         while gun.deadly_bullets > 0:
-            print(f"Gun State:\nChamber:{gun.chambers}")
-            for player in turn_order:
-                cprint(f"{player.username} has been selected")
-                player.select()
+            print(f"Gun State:\nChamber:{gun.chambers}") # temporary for debug purposes, this is a reminder to remove it
+            for current_player in turn_order:
+                cprint(f"{current_player.username} has been selected")
+                current_player.select()
                 is_dead = gun.pull_trigger()
                 
                 if is_dead:
-                    print(f"{player.username} died")
-                    player.kill()
+                    print(f"{current_player.username} was shot")
+                    current_player.kill()
+                    alive_players.remove(current_player)
                 else:
-                    print(f"{player.username} is safe")
+                    print(f"{current_player.username} fired a blank round")
         gun.clear(deadly_bullets)
+    
+    try: 
+        game.is_running.clear() 
+    except: pass
 
 print("Server has Started!")
-while True:
+while not game.is_running.is_set():
     if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
         sleep(defaults.delay_to_verify_ready_players)
         if len(server.ready_users) == len(player_list) and len(player_list) >= 2:
             prepare_game()
     sleep(0.5)
        
+       
+       
+       
+       
 print("Reached EOF") # idk how the code could possibly reach this part with a while true loop but anyways
 sleep(3) # W sleep [100% needed trust 🙏]
-
 # shut the fuck up enter this was before the while loop i think -techtech
