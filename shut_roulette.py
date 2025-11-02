@@ -312,11 +312,11 @@ def handle_packet(packet):
         if user_selected == username: # YOU HAVE BEEN SELECTED
             printf(f"The gun is being handed to you...", delay=0.03, finaldelay=0.2)
 
-            printf("The cold steel rests against your arm. Your pulse quickens — a single click could decide your fate", delay=0.04, finaldelay=0.2)
-            printf("The cylinder clicks into place...", delay=0.04, finaldelay=0.2)
-            printf("Sweat drips...", delay=0.05, finaldelay=0.2)
-            printf("Fate whispers your name...", delay=0.04, finaldelay=0.2)
-            printf("Hit Enter to press the trigger... if you dare...", delay=0.04, newline=False)
+            printf("The cold steel rests against your arm. Your pulse quickens — a single click could decide your fate", delay=0.06, finaldelay=0.2)
+            printf("The cylinder clicks into place...", delay=0.06, finaldelay=0.2)
+            printf("Sweat drips...", delay=0.08, finaldelay=0.2)
+            printf("Fate whispers your name...", delay=0.06, finaldelay=0.2)
+            printf("Hit Enter to press the trigger... if you dare...", delay=0.06, newline=False)
 
             inp = input() 
 
@@ -327,6 +327,13 @@ def handle_packet(packet):
         
         else:
             printf(f"The room has gone silent while staring at {user_selected} as the gun was being handed to them...", delay=0.05)
+            
+    elif packet_type == ntw.packets.player_eliminated.RAW:
+        player_eliminated = str(args[0])
+        if player_eliminated.lower() == "boofs": printf("The victim presses the trigger... Luckily, the body of Boofs drops to the ground", delay=0.09)
+        if player_eliminated.lower() == "hitler" or player_eliminated.lower() == "h1tler": printf("The victim presses the trigger... The body of hitle.. oh for god's sake what degenerate made their username the name of the mustache guy? Anyways, his body drops to the ground like in 1945...", delay=0.07)
+        else:
+            printf(f"The victim presses the trigger.... The body of {player_eliminated} drops to the ground...", delay=0.09)
     
     elif packet_type == ntw.packets.clear_terminal.RAW:
         clear_console()
