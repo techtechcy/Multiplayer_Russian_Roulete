@@ -356,6 +356,8 @@ def run_game():
                     cprint(f"\n{current_player.username} was shot\n")
                     current_player.kill()
                     alive_players.remove(current_player)
+                    turn_order.remove(current_player)
+                    print(f"Alive Players: {alive_players}")
                 else:
                     cprint(f"\n{current_player.username} fired a blank round\n")
                     server.broadcast_packet(ntw.packets.player_is_safe.encode(str(current_player.username)))
