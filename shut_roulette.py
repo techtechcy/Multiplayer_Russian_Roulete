@@ -9,14 +9,13 @@ import platform
 import threading
 import subprocess
 import tkinter as tk
-from shared import ntw, myGUI
+from shared import ntw, myGUI, sound_control
 
 gun_texture = "▄︻テ══━一"
 gun_effect = "💥"
 
 q = queue.Queue()
 logger = queue.Queue()
-
 
 def get_public_servers() -> list[tuple]: # hard coded 'for now' because im lazy (-techtech)
     """Returns a list of tuples:
@@ -53,7 +52,7 @@ def clear_console():
             print("\033c", end="")
         else:
             subprocess.run(["cls"])
-    else: #Linux and Mac
+    else: #Linux and Mac (the program doesnt even support linux but anyways)
         print("\033c", end="")
 
 def format_list(list: list | tuple):
@@ -197,7 +196,6 @@ def send_hb():
     while connected:
         q.put(ntw.packets.heartbeat.encode())
         time.sleep(3)
-
 def handle_queue():
     global connected, csocket
     while connected:
@@ -224,8 +222,6 @@ def handle_queue():
     except Exception:
         pass
     printf("Disconnected from server")
-    
-
 def recv():
     global connected, csocket, players, player_count, started, about_to_start
 
@@ -267,10 +263,7 @@ def recv():
             # Remove the processed packet from the buffer
             buffer = buffer[end_index + len(ntw.end):]
             
-            handle_packet(full_packet)
-            
-        
-        
+            handle_packet(full_packet)      
 def handle_packet(packet):
     global player_count
     log("INCOMING: " + packet)
@@ -321,7 +314,7 @@ def handle_packet(packet):
             printf("Fate whispers your name...", delay=0.06, finaldelay=0.2)
             printf("Hit Enter to press the trigger... if you dare...", delay=0.06, newline=False)
 
-            inp = input() 
+            input() 
 
             printf("For a heartbeat, the world stops...", delay=0.06, finaldelay=0.2)
             printf("Is it over... or has fate spared you this time?", delay=0.06, finaldelay=0.2)
@@ -329,7 +322,7 @@ def handle_packet(packet):
             q.put(ntw.packets.pressed_trigger.encode())
         
         else:
-            printf(f"The room has gone silent while staring at {user_selected} as the gun is being handed to them...", delay=0.05)
+            printf(f"The room has gone silent while staring at {user_selected} as the gun is being handed to them...", delay=0.07)
     
     elif packet_type == ntw.packets.game_over.RAW:
         clear_console()
@@ -337,13 +330,19 @@ def handle_packet(packet):
         printf(f"The game is over.{'Unfortunanly t' if winner.lower() == 'boofs' else 'T'}he winner is {winner}")
             
     elif packet_type == ntw.packets.player_eliminated.RAW:
+        printf("The victim presses the trigger... ", delay=0.1, finaldelay=1)
+        shared.sound_control.play_sound("assets/gun_shot.mp3", block=True)
         
         player_eliminated = str(args[0])
-        if player_eliminated.lower() == "boofs": printf("The victim presses the trigger... Luckily, the body of Boofs drops to the ground", delay=0.09)
-        if player_eliminated.lower() == "hitler" or player_eliminated.lower() == "h1tler": printf("The victim presses the trigger... The body of Hitle.. oh for god's sake what degenerate made their username the name of the mustache guy? Anyways, his body drops to the ground like in 1945...", delay=0.07)
+        if player_eliminated.lower() == "boofs": printf("Luckily, the body of Boofs drops to the ground", delay=0.09)
+        if player_eliminated.lower() == "hitler" or player_eliminated.lower() == "h1tler": printf("The body of Hitle.. oh for god's sake what degenerate made their username the name of the mustache guy? Anyways, his body drops to the ground like in 1945...", delay=0.07) # Small 'easter egg'
         else:
-            printf(f"The victim presses the trigger.... The body of {player_eliminated} drops to the ground...", delay=0.09)
-        shared.sound_control.play_sound("assets/gun_shot.mp3")
+            printf(f"The body of {player_eliminated} drops to the ground...", delay=0.1)
+    elif packet_type == ntw.packets.player_is_safe.RAW:
+        player = args[0]
+        printf("The victim presses the trigger... ", delay=0.1, finaldelay=1)
+        shared.sound_control.play_sound("assets/empty_shot.mp3", block=True)
+        printf(f"{player} is safe...", delay=0.1, newline=False); printf("For now...", delay=0.8, finaldelay=1)
     
     elif packet_type == ntw.packets.clear_terminal.RAW:
         clear_console()
@@ -361,6 +360,7 @@ def esc_kb():
         time.sleep(0.1)
 
 threading.Thread(target=esc_kb, daemon=True).start()
+connected = connection_server.connect_to_server(server_ip_input, server_port_input)
 
 username = ""
 is_valid = False
@@ -372,8 +372,11 @@ while not is_valid:
     is_valid, reason_of_invalidation, text_delay = ntw.validate_username(username)
     if not is_valid:
         printf(reason_of_invalidation, text_delay)
+    
+    if is_valid:
+        if reason_of_invalidation is not "":
+            printf(reason_of_invalidation, text_delay)
 
-connected = connection_server.connect_to_server(server_ip_input, server_port_input)
 
 if not connected:
     is_running.clear()
