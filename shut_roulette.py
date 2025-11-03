@@ -342,7 +342,7 @@ def handle_packet(packet):
         player = args[0]
         printf("The victim presses the trigger... ", delay=0.1, finaldelay=1)
         shared.sound_control.play_sound("assets/empty_shot.mp3", block=True)
-        printf(f"{player} is safe...", delay=0.1, newline=False); printf("For now...", delay=0.8, finaldelay=1)
+        printf(f"{player} is safe...", delay=0.1, newline=False); printf("For now...", delay=0.1, finaldelay=1)
     
     elif packet_type == ntw.packets.clear_terminal.RAW:
         clear_console()
