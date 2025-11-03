@@ -335,6 +335,18 @@ def prepare_game():
 
 class game:
     is_running = threading.Event()
+    
+def game_is_over(alive_players: list[client]) -> bool:
+    if len(alive_players) == 1:
+        cprint(f"Alive Player count reached {len(alive_players)}. Shutting Down Game...")
+        winner = alive_players[0]
+        server.broadcast_packet(ntw.packets.game_over.encode(str(winner.username)))
+        cprint(f"Winner: {winner.username}")
+        game.is_running.clear()
+    elif len(alive_players) < 1:
+        game.is_running.clear()
+        return True
+    return False
 
 def run_game():
     game.is_running.set()
@@ -346,14 +358,11 @@ def run_game():
     deadly_bullets = gun.deadly_bullets
     
     while game.is_running.is_set():
-        if len(alive_players) < 1:
-            cprint(f"Alive Player count reached {len(alive_players)}. Shutting Down Game...")
-            winner = alive_players[0]
-            game.is_running.clear()
-            break
-
+        if game_is_over(alive_players): break
         while gun.deadly_bullets > 0:
+            if game_is_over(alive_players): break
             for current_player in turn_order:
+                if game_is_over(alive_players): break
                 cprint(f"\n{current_player.username} has been selected\n")
                 current_player.select()
                 is_dead = gun.pull_trigger()
@@ -367,12 +376,9 @@ def run_game():
                 else:
                     cprint(f"\n{current_player.username} fired a blank round\n")
                     server.broadcast_packet(ntw.packets.player_is_safe.encode(str(current_player.username)))
+                if game_is_over(alive_players): break
         gun.clear(deadly_bullets)
     
-    try: 
-        print("Sending game over packets to all players...")
-        server.broadcast_packet(ntw.packets.game_over.encode(str(winner.username))) # pyright: ignore[reportPossiblyUnboundVariable] # actually pylance i think its impossible for the winner variable to be unbound but anyways
-    except: pass
 
 print("Server has Started!")
 while not game.is_running.is_set():
@@ -390,3 +396,5 @@ print("\n\nReached EOF\n\n") # idk how the code could possibly reach this part w
 sleep(3) # W sleep [100% needed trust 🙏]
 # shut the fuck up enter this was before the while true loop i think -techtech
 # would you look at that the while true loop IS REMOVED ENTER
+# oh WOULD YOU LOOK AT THAT, WHAT AN AMAZING JOB TECHTECH [100% efficient btw] (-enter)
+# some faggot called techtech corrected a bit the comment btw you fucking fuckass faggots
