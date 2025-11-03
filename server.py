@@ -1,4 +1,5 @@
 import os
+import sys
 import queue
 import socket
 import random
@@ -346,6 +347,7 @@ def game_is_over(alive_players: list[client]) -> bool:
     elif len(alive_players) < 1:
         game.is_running.clear()
         return True
+    sys.exit(0)
     return False
 
 def run_game():
