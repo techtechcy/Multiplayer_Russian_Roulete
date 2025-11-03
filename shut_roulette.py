@@ -374,7 +374,7 @@ while not is_valid:
         printf(reason_of_invalidation, text_delay)
     
     if is_valid:
-        if reason_of_invalidation is not "":
+        if reason_of_invalidation != "":
             printf(reason_of_invalidation, text_delay)
 
 
