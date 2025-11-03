@@ -8,6 +8,7 @@ from time import sleep
 
 class cfg:
     should_crash = True
+    soviet_names = ["stalin", "gorbachev", "cccp", "ussr", "mikhail gorbachev", "mikhail_gorbachev", "mikhail", "comrade", "soviet_union", "soviet union", "soviet russia", "union of soviet socialist republics"]
     
     
 ##################################################### Logging Window ('borrowed' from stackoverflow) #####################################################
@@ -149,6 +150,15 @@ class ntw:
         
         if "*)" in username or "(*" in username or "|" in username or "[" in username or "]" in username:
             return False, "For top secret reasons, your username cant contain the following: (*  *)  ,   |  [  ]", 0.04
+        
+        if username.replace(" ", "") == "":
+            return False, "Your username should include more than spaces", 0.05
+        
+        if username == "":
+            return False, "Please enter a username", 0.06
+        
+        if username.lower() in cfg.soviet_names: # easter egg for no reason
+            return True, "Welcome Comrade.", 0.07
         
         return True, "", 0.06
     
